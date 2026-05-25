@@ -402,7 +402,7 @@ export const GetSubscriptionsResponseItem = zod.object({
   "id": zod.number(),
   "userId": zod.number(),
   "courseId": zod.number(),
-  "status": zod.enum(['pending', 'active', 'rejected']),
+  "status": zod.enum(['pending', 'active', 'rejected', 'suspended']),
   "courseSlug": zod.string().nullish(),
   "courseTitleAr": zod.string().nullish(),
   "courseTitleEn": zod.string().nullish(),
@@ -433,7 +433,7 @@ export const ApproveSubscriptionResponse = zod.object({
   "id": zod.number(),
   "userId": zod.number(),
   "courseId": zod.number(),
-  "status": zod.enum(['pending', 'active', 'rejected']),
+  "status": zod.enum(['pending', 'active', 'rejected', 'suspended']),
   "courseSlug": zod.string().nullish(),
   "courseTitleAr": zod.string().nullish(),
   "courseTitleEn": zod.string().nullish(),
@@ -455,7 +455,51 @@ export const RejectSubscriptionResponse = zod.object({
   "id": zod.number(),
   "userId": zod.number(),
   "courseId": zod.number(),
-  "status": zod.enum(['pending', 'active', 'rejected']),
+  "status": zod.enum(['pending', 'active', 'rejected', 'suspended']),
+  "courseSlug": zod.string().nullish(),
+  "courseTitleAr": zod.string().nullish(),
+  "courseTitleEn": zod.string().nullish(),
+  "userEmail": zod.string().nullish(),
+  "username": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "approvedAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Admin suspend an active subscription
+ */
+export const SuspendSubscriptionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SuspendSubscriptionResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "courseId": zod.number(),
+  "status": zod.enum(['pending', 'active', 'rejected', 'suspended']),
+  "courseSlug": zod.string().nullish(),
+  "courseTitleAr": zod.string().nullish(),
+  "courseTitleEn": zod.string().nullish(),
+  "userEmail": zod.string().nullish(),
+  "username": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "approvedAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Admin reactivate a suspended subscription
+ */
+export const ReactivateSubscriptionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ReactivateSubscriptionResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "courseId": zod.number(),
+  "status": zod.enum(['pending', 'active', 'rejected', 'suspended']),
   "courseSlug": zod.string().nullish(),
   "courseTitleAr": zod.string().nullish(),
   "courseTitleEn": zod.string().nullish(),

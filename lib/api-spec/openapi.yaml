@@ -503,6 +503,56 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /subscriptions/{id}/suspend:
+    patch:
+      operationId: suspendSubscription
+      tags: [subscriptions]
+      summary: Admin suspend an active subscription
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Subscription suspended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /subscriptions/{id}/reactivate:
+    patch:
+      operationId: reactivateSubscription
+      tags: [subscriptions]
+      summary: Admin reactivate a suspended subscription
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Subscription reactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /leaderboard:
     get:
       operationId: getLeaderboard
@@ -1130,7 +1180,7 @@ components:
           type: integer
         status:
           type: string
-          enum: [pending, active, rejected]
+          enum: [pending, active, rejected, suspended]
         courseSlug:
           type: ["string", "null"]
           

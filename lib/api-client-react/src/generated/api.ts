@@ -1624,6 +1624,146 @@ export const useRejectSubscription = <TError = ErrorType<ErrorResponse>,
       return useMutation(getRejectSubscriptionMutationOptions(options));
     }
 
+export const getSuspendSubscriptionUrl = (id: number,) => {
+
+
+
+
+  return `/api/subscriptions/${id}/suspend`
+}
+
+/**
+ * @summary Admin suspend an active subscription
+ */
+export const suspendSubscription = async (id: number, options?: RequestInit): Promise<Subscription> => {
+
+  return customFetch<Subscription>(getSuspendSubscriptionUrl(id),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+export const getSuspendSubscriptionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suspendSubscription>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof suspendSubscription>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['suspendSubscription'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof suspendSubscription>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  suspendSubscription(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SuspendSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof suspendSubscription>>>
+
+    export type SuspendSubscriptionMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Admin suspend an active subscription
+ */
+export const useSuspendSubscription = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suspendSubscription>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof suspendSubscription>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getSuspendSubscriptionMutationOptions(options));
+    }
+
+export const getReactivateSubscriptionUrl = (id: number,) => {
+
+
+
+
+  return `/api/subscriptions/${id}/reactivate`
+}
+
+/**
+ * @summary Admin reactivate a suspended subscription
+ */
+export const reactivateSubscription = async (id: number, options?: RequestInit): Promise<Subscription> => {
+
+  return customFetch<Subscription>(getReactivateSubscriptionUrl(id),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+export const getReactivateSubscriptionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reactivateSubscription>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reactivateSubscription>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['reactivateSubscription'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reactivateSubscription>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  reactivateSubscription(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReactivateSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof reactivateSubscription>>>
+
+    export type ReactivateSubscriptionMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Admin reactivate a suspended subscription
+ */
+export const useReactivateSubscription = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reactivateSubscription>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reactivateSubscription>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getReactivateSubscriptionMutationOptions(options));
+    }
+
 export const getGetLeaderboardUrl = (params?: GetLeaderboardParams,) => {
   const normalizedParams = new URLSearchParams();
 

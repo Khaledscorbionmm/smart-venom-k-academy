@@ -344,6 +344,7 @@ export const SubscriptionStatus = {
   pending: 'pending',
   active: 'active',
   rejected: 'rejected',
+  suspended: 'suspended',
 } as const;
 
 export interface Subscription {

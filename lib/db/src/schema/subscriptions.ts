@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { usersTable } from "./users";
 import { coursesTable } from "./courses";
 
-export const subscriptionStatusEnum = pgEnum("subscription_status", ["pending", "active", "rejected"]);
+export const subscriptionStatusEnum = pgEnum("subscription_status", ["pending", "active", "rejected", "suspended"]);
 
 export const subscriptionsTable = pgTable("subscriptions", {
   id: serial("id").primaryKey(),

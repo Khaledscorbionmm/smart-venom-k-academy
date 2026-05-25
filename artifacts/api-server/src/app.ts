@@ -33,7 +33,7 @@ app.use(cookieParser());
 
 app.use(
   session({
-    store: new PgSession({ pool, createTableIfMissing: true }),
+    store: new PgSession({ pool, createTableIfMissing: false }),
     secret: process.env.SESSION_SECRET || "smart-venom-k-secret-2025",
     resave: false,
     saveUninitialized: false,

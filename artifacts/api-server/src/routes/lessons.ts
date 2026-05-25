@@ -18,18 +18,23 @@ router.get("/lessons/:id", async (req, res) => {
   const [chapter] = await db.select().from(chaptersTable).where(eq(chaptersTable.id, lesson.chapterId)).limit(1);
   const [course] = await db.select().from(coursesTable).where(eq(coursesTable.id, chapter.courseId)).limit(1);
 
-  // Access check: must be free or user must have subscription
-  if (!lesson.isFree && userId) {
-    const [sub] = await db.select().from(subscriptionsTable)
-      .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.courseId, course.id), eq(subscriptionsTable.status, "active")))
-      .limit(1);
-    if (!sub) {
-      res.status(403).json({ error: "Subscription required to access this lesson" });
+  // Access check: free lessons are open to all; paid lessons require subscription (admins bypass)
+  if (!lesson.isFree) {
+    if (!userId) {
+      res.status(403).json({ error: "Login required" });
       return;
     }
-  } else if (!lesson.isFree && !userId) {
-    res.status(403).json({ error: "Login required" });
-    return;
+    const [user] = await db.select({ role: usersTable.role })
+      .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (user?.role !== "admin") {
+      const [sub] = await db.select().from(subscriptionsTable)
+        .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.courseId, course.id), eq(subscriptionsTable.status, "active")))
+        .limit(1);
+      if (!sub) {
+        res.status(403).json({ error: "Subscription required to access this lesson" });
+        return;
+      }
+    }
   }
 
   const quizQuestions = await db.select().from(quizQuestionsTable)
@@ -48,13 +53,22 @@ router.get("/lessons/:id", async (req, res) => {
     chapterId: chapter.id,
     courseSlug: course.slug,
     isCompleted,
-    quizQuestions: quizQuestions.map(q => ({
-      id: q.id,
-      questionAr: q.questionAr,
-      questionEn: q.questionEn,
-      options: q.options,
-      xpReward: q.xpReward,
-    })),
+    quizQuestions: quizQuestions.map(q => {
+      // options stored as string[] — convert to { id, textAr, textEn } objects
+      const rawOptions = (q.options as unknown as string[]) || [];
+      return {
+        id: q.id,
+        questionAr: q.questionAr,
+        questionEn: q.questionEn,
+        correctOptionId: q.correctOptionId,
+        xpReward: q.xpReward,
+        options: rawOptions.map((text, idx) => ({
+          id: String(idx),
+          textAr: text,
+          textEn: text,
+        })),
+      };
+    }),
   });
 });
 

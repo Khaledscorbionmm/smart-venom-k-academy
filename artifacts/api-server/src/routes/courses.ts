@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, coursesTable, chaptersTable, lessonsTable, userProgressTable, subscriptionsTable } from "@workspace/db";
+import { db, coursesTable, chaptersTable, lessonsTable, userProgressTable, subscriptionsTable, usersTable } from "@workspace/db";
 import { eq, and, count, sql } from "drizzle-orm";
 
 const router = Router();
@@ -62,10 +62,16 @@ router.get("/courses/:slug", async (req, res) => {
 
   let hasAccess = false;
   if (userId) {
-    const [sub] = await db.select().from(subscriptionsTable)
-      .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.courseId, course.id), eq(subscriptionsTable.status, "active")))
-      .limit(1);
-    hasAccess = !!sub;
+    const [userRow] = await db.select({ role: usersTable.role })
+      .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (userRow?.role === "admin") {
+      hasAccess = true; // admins bypass subscription
+    } else {
+      const [sub] = await db.select().from(subscriptionsTable)
+        .where(and(eq(subscriptionsTable.userId, userId), eq(subscriptionsTable.courseId, course.id), eq(subscriptionsTable.status, "active")))
+        .limit(1);
+      hasAccess = !!sub;
+    }
   }
 
   let completedLessonIds: number[] = [];

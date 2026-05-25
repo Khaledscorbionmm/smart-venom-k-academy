@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "UT611dLccSNM1Fn85huqA"
+uri = "file://exports/smart-venom-k-academy.tar.gz"
+type = "unspecified"
+title = "Smart Venom K Academy - الكود الكامل مضغوط"

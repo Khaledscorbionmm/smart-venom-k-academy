@@ -1,40 +1,85 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { LanguageProvider } from "./contexts/LanguageContext";
+import { MainLayout } from "./components/MainLayout";
+import { useEffect } from "react";
+
 import NotFound from "@/pages/not-found";
+import Landing from "@/pages/Landing";
+import Dashboard from "@/pages/Dashboard";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
+import Courses from "@/pages/Courses";
+import CourseDetail from "@/pages/CourseDetail";
+import LessonViewer from "@/pages/LessonViewer";
+import Leaderboard from "@/pages/Leaderboard";
+import Profile from "@/pages/Profile";
+import Admin from "@/pages/Admin";
 
 const queryClient = new QueryClient();
 
-function Home() {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Replit Agent is building...</h1>
-        <p className="mt-2 text-sm text-gray-600">Your app will appear here once it's ready.</p>
-      </div>
-    </div>
-  );
+function ProtectedRoute({ component: Component, ...rest }: any) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!user) {
+    return <Redirect to="/login" />;
+  }
+
+  return <Component {...rest} />;
 }
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route component={NotFound} />
-    </Switch>
+    <MainLayout>
+      <Switch>
+        <Route path="/" component={Landing} />
+        <Route path="/login" component={Login} />
+        <Route path="/register" component={Register} />
+        <Route path="/courses" component={Courses} />
+        <Route path="/courses/:slug" component={CourseDetail} />
+        <Route path="/leaderboard" component={Leaderboard} />
+        <Route path="/dashboard">
+          <ProtectedRoute component={Dashboard} />
+        </Route>
+        <Route path="/lessons/:id">
+          <ProtectedRoute component={LessonViewer} />
+        </Route>
+        <Route path="/profile">
+          <ProtectedRoute component={Profile} />
+        </Route>
+        <Route path="/admin">
+          <ProtectedRoute component={Admin} />
+        </Route>
+        <Route component={NotFound} />
+      </Switch>
+    </MainLayout>
   );
 }
 
 function App() {
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <Router />
+            </WouterRouter>
+            <Toaster />
+          </TooltipProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }

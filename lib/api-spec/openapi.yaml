@@ -1,22 +1,38 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Smart Venom K Academy API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: courses
+    description: Course management
+  - name: lessons
+    description: Lesson content and code execution
+  - name: quizzes
+    description: Quizzes and assessments
+  - name: progress
+    description: User progress tracking
+  - name: subscriptions
+    description: Subscription management
+  - name: users
+    description: User management
+  - name: leaderboard
+    description: Leaderboard
+  - name: admin
+    description: Admin operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +40,560 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /courses:
+    get:
+      operationId: getCourses
+      tags: [courses]
+      summary: List all courses
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: language
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of courses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Course"
+
+  /courses/featured:
+    get:
+      operationId: getFeaturedCourses
+      tags: [courses]
+      summary: Get featured courses with stats
+      responses:
+        "200":
+          description: Featured courses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CourseSummary"
+
+  /courses/{slug}:
+    get:
+      operationId: getCourse
+      tags: [courses]
+      summary: Get course with chapters and lessons
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Course details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /lessons/{id}:
+    get:
+      operationId: getLesson
+      tags: [lessons]
+      summary: Get lesson with quiz questions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lesson with quiz
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonDetail"
+        "403":
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /lessons/{id}/complete:
+    post:
+      operationId: completeLesson
+      tags: [lessons]
+      summary: Mark lesson as complete and award XP
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lesson completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletionResult"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /lessons/{id}/execute:
+    post:
+      operationId: executeCode
+      tags: [lessons]
+      summary: Execute code in sandbox
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodeExecutionInput"
+      responses:
+        "200":
+          description: Code execution result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CodeExecutionResult"
+
+  /quizzes/{lessonId}/submit:
+    post:
+      operationId: submitQuiz
+      tags: [quizzes]
+      summary: Submit quiz answers
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuizSubmission"
+      responses:
+        "200":
+          description: Quiz result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuizResult"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/me/dashboard:
+    get:
+      operationId: getDashboard
+      tags: [users]
+      summary: Get user dashboard summary
+      responses:
+        "200":
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/me/progress:
+    get:
+      operationId: getUserProgress
+      tags: [progress]
+      summary: Get user overall progress
+      responses:
+        "200":
+          description: Progress data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProgress"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/me/achievements:
+    get:
+      operationId: getUserAchievements
+      tags: [users]
+      summary: Get user achievements
+      responses:
+        "200":
+          description: Achievements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserAchievement"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/me/streak:
+    get:
+      operationId: getStreak
+      tags: [users]
+      summary: Get user streak info
+      responses:
+        "200":
+          description: Streak info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreakInfo"
+
+  /users/me/profile:
+    patch:
+      operationId: updateProfile
+      tags: [users]
+      summary: Update user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /subscriptions:
+    get:
+      operationId: getSubscriptions
+      tags: [subscriptions]
+      summary: Get subscriptions (own or all for admin)
+      responses:
+        "200":
+          description: Subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Subscription"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      operationId: requestSubscription
+      tags: [subscriptions]
+      summary: Request subscription to a course
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionInput"
+      responses:
+        "201":
+          description: Subscription requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "400":
+          description: Already subscribed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /subscriptions/{id}/approve:
+    patch:
+      operationId: approveSubscription
+      tags: [subscriptions]
+      summary: Admin approve subscription
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Subscription approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /subscriptions/{id}/reject:
+    patch:
+      operationId: rejectSubscription
+      tags: [subscriptions]
+      summary: Admin reject subscription
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Subscription rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [leaderboard]
+      summary: Get top users by XP
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
+
+  /admin/users:
+    get:
+      operationId: adminGetUsers
+      tags: [admin]
+      summary: Admin get all users
+      responses:
+        "200":
+          description: All users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/users/{id}:
+    patch:
+      operationId: adminUpdateUser
+      tags: [admin]
+      summary: Admin update user (role, access)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Platform statistics
+      responses:
+        "200":
+          description: Platform stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +601,606 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    RegisterInput:
+      type: object
+      required: [username, email, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 6
+        languagePreference:
+          type: string
+          enum: [ar, en]
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    User:
+      type: object
+      required: [id, username, email, role, xp, level, streak, languagePreference, createdAt]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [student, admin]
+        xp:
+          type: integer
+        level:
+          type: integer
+        streak:
+          type: integer
+        languagePreference:
+          type: string
+          enum: [ar, en]
+        avatarUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+
+    ProfileUpdate:
+      type: object
+      properties:
+        username:
+          type: string
+        languagePreference:
+          type: string
+          enum: [ar, en]
+        avatarUrl:
+          type: string
+
+    Course:
+      type: object
+      required: [id, slug, titleAr, titleEn, language, category, price, icon, color, totalLessons, totalChapters]
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        titleAr:
+          type: string
+        titleEn:
+          type: string
+        descriptionAr:
+          type: ["string", "null"]
+        descriptionEn:
+          type: ["string", "null"]
+        language:
+          type: string
+        category:
+          type: string
+          enum: [programming, human_language]
+        price:
+          type: number
+        icon:
+          type: string
+        color:
+          type: string
+        totalLessons:
+          type: integer
+        totalChapters:
+          type: integer
+        isFreeTrialAvailable:
+          type: boolean
+
+    CourseSummary:
+      type: object
+      required: [id, slug, titleAr, titleEn, language, category, price, icon, color, totalLessons, totalChapters, enrolledCount]
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        titleAr:
+          type: string
+        titleEn:
+          type: string
+        language:
+          type: string
+        category:
+          type: string
+        price:
+          type: number
+        icon:
+          type: string
+        color:
+          type: string
+        totalLessons:
+          type: integer
+        totalChapters:
+          type: integer
+        enrolledCount:
+          type: integer
+        isFreeTrialAvailable:
+          type: boolean
+
+    Chapter:
+      type: object
+      required: [id, titleAr, titleEn, order, lessons]
+      properties:
+        id:
+          type: integer
+        titleAr:
+          type: string
+        titleEn:
+          type: string
+        descriptionAr:
+          type: ["string", "null"]
+        descriptionEn:
+          type: ["string", "null"]
+        order:
+          type: integer
+        lessons:
+          type: array
+          items:
+            $ref: "#/components/schemas/LessonPreview"
+
+    LessonPreview:
+      type: object
+      required: [id, titleAr, titleEn, order, isFree, xpReward]
+      properties:
+        id:
+          type: integer
+        titleAr:
+          type: string
+        titleEn:
+          type: string
+        order:
+          type: integer
+        isFree:
+          type: boolean
+        xpReward:
+          type: integer
+        isCompleted:
+          type: boolean
+        hasVideo:
+          type: boolean
+
+    CourseDetail:
+      type: object
+      required: [id, slug, titleAr, titleEn, language, category, price, icon, color, chapters, totalLessons, totalChapters]
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        titleAr:
+          type: string
+        titleEn:
+          type: string
+        descriptionAr:
+          type: ["string", "null"]
+        descriptionEn:
+          type: ["string", "null"]
+        language:
+          type: string
+        category:
+          type: string
+        price:
+          type: number
+        icon:
+          type: string
+        color:
+          type: string
+        totalLessons:
+          type: integer
+        totalChapters:
+          type: integer
+        isFreeTrialAvailable:
+          type: boolean
+        hasAccess:
+          type: boolean
+        userXpEarned:
+          type: integer
+        chapters:
+          type: array
+          items:
+            $ref: "#/components/schemas/Chapter"
+
+    LessonDetail:
+      type: object
+      required: [id, titleAr, titleEn, contentAr, contentEn, xpReward, order, isFree, chapterId, courseSlug]
+      properties:
+        id:
+          type: integer
+        titleAr:
+          type: string
+        titleEn:
+          type: string
+        contentAr:
+          type: string
+        contentEn:
+          type: string
+        codeExample:
+          type: ["string", "null"]
+        language:
+          type: string
+        videoUrlAr:
+          type: ["string", "null"]
+        videoUrlEn:
+          type: ["string", "null"]
+        xpReward:
+          type: integer
+        order:
+          type: integer
+        isFree:
+          type: boolean
+        chapterId:
+          type: integer
+        courseSlug:
+          type: string
+        isCompleted:
+          type: boolean
+        quizQuestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuizQuestion"
+
+    QuizQuestion:
+      type: object
+      required: [id, questionAr, questionEn, options, xpReward]
+      properties:
+        id:
+          type: integer
+        questionAr:
+          type: string
+        questionEn:
+          type: string
+        options:
+          type: array
+          items:
+            type: object
+            required: [id, textAr, textEn]
+            properties:
+              id:
+                type: string
+              textAr:
+                type: string
+              textEn:
+                type: string
+        xpReward:
+          type: integer
+
+    CodeExecutionInput:
+      type: object
+      required: [code, language]
+      properties:
+        code:
+          type: string
+        language:
+          type: string
+
+    CodeExecutionResult:
+      type: object
+      required: [success, output]
+      properties:
+        success:
+          type: boolean
+        output:
+          type: string
+        error:
+          type: ["string", "null"]
+        executionTime:
+          type: ["integer", "null"]
+
+    QuizSubmission:
+      type: object
+      required: [answers]
+      properties:
+        answers:
+          type: array
+          items:
+            type: object
+            required: [questionId, selectedOptionId]
+            properties:
+              questionId:
+                type: integer
+              selectedOptionId:
+                type: string
+
+    QuizResult:
+      type: object
+      required: [score, totalQuestions, correctAnswers, xpEarned, results]
+      properties:
+        score:
+          type: number
+        totalQuestions:
+          type: integer
+        correctAnswers:
+          type: integer
+        xpEarned:
+          type: integer
+        results:
+          type: array
+          items:
+            type: object
+            required: [questionId, isCorrect, correctOptionId, explanation]
+            properties:
+              questionId:
+                type: integer
+              isCorrect:
+                type: boolean
+              correctOptionId:
+                type: string
+              explanationAr:
+                type: ["string", "null"]
+              explanationEn:
+                type: ["string", "null"]
+
+    CompletionResult:
+      type: object
+      required: [xpEarned, totalXp, leveledUp, newLevel]
+      properties:
+        xpEarned:
+          type: integer
+        totalXp:
+          type: integer
+        leveledUp:
+          type: boolean
+        newLevel:
+          type: integer
+        streakUpdated:
+          type: boolean
+        newStreak:
+          type: integer
+
+    Dashboard:
+      type: object
+      required: [user, completedLessons, totalLessons, passedQuizzes, codeExecutions, languageStats, recentActivity, weeklyXp]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        completedLessons:
+          type: integer
+        totalLessons:
+          type: integer
+        passedQuizzes:
+          type: integer
+        codeExecutions:
+          type: integer
+        languageStats:
+          type: array
+          items:
+            type: object
+            required: [courseSlug, titleAr, titleEn, icon, color, completedLessons, totalLessons, xpEarned]
+            properties:
+              courseSlug:
+                type: string
+              titleAr:
+                type: string
+              titleEn:
+                type: string
+              icon:
+                type: string
+              color:
+                type: string
+              completedLessons:
+                type: integer
+              totalLessons:
+                type: integer
+              xpEarned:
+                type: integer
+        recentActivity:
+          type: array
+          items:
+            type: object
+            required: [id, type, titleAr, titleEn, xpEarned, createdAt]
+            properties:
+              id:
+                type: integer
+              type:
+                type: string
+              titleAr:
+                type: string
+              titleEn:
+                type: string
+              xpEarned:
+                type: integer
+              createdAt:
+                type: string
+        weeklyXp:
+          type: array
+          items:
+            type: object
+            required: [day, xp]
+            properties:
+              day:
+                type: string
+              xp:
+                type: integer
+
+    UserProgress:
+      type: object
+      required: [totalXp, level, streak, completedLessons, totalLessons, courseProgress]
+      properties:
+        totalXp:
+          type: integer
+        level:
+          type: integer
+        streak:
+          type: integer
+        completedLessons:
+          type: integer
+        totalLessons:
+          type: integer
+        courseProgress:
+          type: array
+          items:
+            type: object
+            required: [courseSlug, titleAr, titleEn, icon, color, completedLessons, totalLessons, percentage]
+            properties:
+              courseSlug:
+                type: string
+              titleAr:
+                type: string
+              titleEn:
+                type: string
+              icon:
+                type: string
+              color:
+                type: string
+              completedLessons:
+                type: integer
+              totalLessons:
+                type: integer
+              percentage:
+                type: number
+
+    StreakInfo:
+      type: object
+      required: [currentStreak, longestStreak, lastActivityDate]
+      properties:
+        currentStreak:
+          type: integer
+        longestStreak:
+          type: integer
+        lastActivityDate:
+          type: ["string", "null"]
+
+    UserAchievement:
+      type: object
+      required: [id, nameAr, nameEn, descriptionAr, descriptionEn, icon, earnedAt, xpRequired]
+      properties:
+        id:
+          type: integer
+        nameAr:
+          type: string
+        nameEn:
+          type: string
+        descriptionAr:
+          type: string
+        descriptionEn:
+          type: string
+        icon:
+          type: string
+        earnedAt:
+          type: ["string", "null"]
+        xpRequired:
+          type: integer
+        isEarned:
+          type: boolean
+
+    Subscription:
+      type: object
+      required: [id, userId, courseId, status, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        courseId:
+          type: integer
+        status:
+          type: string
+          enum: [pending, active, rejected]
+        courseSlug:
+          type: ["string", "null"]
+          
+        courseTitleAr:
+          type: ["string", "null"]
+        courseTitleEn:
+          type: ["string", "null"]
+        userEmail:
+          type: ["string", "null"]
+        username:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        approvedAt:
+          type: ["string", "null"]
+
+    SubscriptionInput:
+      type: object
+      required: [courseId]
+      properties:
+        courseId:
+          type: integer
+
+    LeaderboardEntry:
+      type: object
+      required: [rank, userId, username, xp, level, streak, avatarUrl]
+      properties:
+        rank:
+          type: integer
+        userId:
+          type: integer
+        username:
+          type: string
+        xp:
+          type: integer
+        level:
+          type: integer
+        streak:
+          type: integer
+        avatarUrl:
+          type: ["string", "null"]
+
+    AdminUserUpdate:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [student, admin]
+        xp:
+          type: integer
+        level:
+          type: integer
+
+    AdminStats:
+      type: object
+      required: [totalUsers, totalCourses, totalLessons, totalSubscriptions, pendingSubscriptions, activeSubscriptions, totalXpAwarded, recentSignups]
+      properties:
+        totalUsers:
+          type: integer
+        totalCourses:
+          type: integer
+        totalLessons:
+          type: integer
+        totalSubscriptions:
+          type: integer
+        pendingSubscriptions:
+          type: integer
+        activeSubscriptions:
+          type: integer
+        totalXpAwarded:
+          type: integer
+        recentSignups:
+          type: integer

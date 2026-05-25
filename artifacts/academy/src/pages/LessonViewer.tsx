@@ -1,24 +1,35 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useGetLesson, useExecuteCode, useSubmitQuiz, useCompleteLesson, getGetLessonQueryKey } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { ArrowRight, ArrowLeft, Play, CheckCircle2, Code2, Trophy, BrainCircuit, BookOpen, Sparkles, Target, Baby, GraduationCap } from "lucide-react";
+import { ArrowRight, ArrowLeft, Play, CheckCircle2, Code2, BrainCircuit, BookOpen, Sparkles, Target, Baby, GraduationCap, Zap, Flame, Trophy } from "lucide-react";
 import Editor from "@monaco-editor/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { AudioPlayer } from "@/components/AudioPlayer";
+import { useSound } from "@/contexts/SoundContext";
+import { ConfettiEffect } from "@/components/ConfettiEffect";
+import { LevelUpModal } from "@/components/LevelUpModal";
+import { FantasyRankBadge } from "@/components/FantasyRankBadge";
+import { getRank } from "@/lib/fantasyRanks";
 
 export default function LessonViewer() {
   const { t, lang } = useLanguage();
+  const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const lessonId = parseInt(id || "0", 10);
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const { playSound, playNarration } = useSound();
+  const [confetti, setConfetti] = useState(false);
+  const [showLevelUp, setShowLevelUp] = useState(false);
 
   const { data: lesson, isLoading } = useGetLesson(lessonId);
   const executeCode = useExecuteCode();
@@ -35,6 +46,10 @@ export default function LessonViewer() {
   if (lesson && !code && lesson.codeExample) {
     setCode(lesson.codeExample);
   }
+
+  useEffect(() => {
+    playNarration("welcome_ar");
+  }, []);
 
   if (isLoading || !lesson) {
     return <div className="p-8 text-center">{t('جاري التحميل...', 'Loading...')}</div>;
@@ -56,6 +71,7 @@ export default function LessonViewer() {
 
   const handleQuizSubmit = () => {
     if (!lesson.quizQuestions) return;
+    playSound('click');
     
     const answers = Object.entries(selectedAnswers).map(([qId, optionId]) => ({
       questionId: parseInt(qId, 10),
@@ -72,10 +88,17 @@ export default function LessonViewer() {
       {
         onSuccess: (res) => {
           setQuizResults(res);
-          toast.success(t(`لقد حصلت على ${res.score}/${res.totalQuestions}`, `You scored ${res.score}/${res.totalQuestions}`));
-          // Auto complete if score is 100%
-          if (res.score === res.totalQuestions && !lesson.isCompleted) {
-            handleCompleteLesson();
+          if (res.score === res.totalQuestions) {
+            playSound('success');
+            setConfetti(true);
+            setTimeout(() => setConfetti(false), 3000);
+            toast.success(t(`مبارك! ${res.score}/${res.totalQuestions} — درجة كاملة!`, `Amazing! ${res.score}/${res.totalQuestions} — Perfect Score!`));
+            // Auto complete if score is 100%
+            if (!lesson.isCompleted) {
+              handleCompleteLesson();
+            }
+          } else {
+            toast(t(`لقد حصلت على ${res.score}/${res.totalQuestions}`, `You scored ${res.score}/${res.totalQuestions}`));
           }
         }
       }
@@ -87,7 +110,15 @@ export default function LessonViewer() {
       { id: lessonId },
       {
         onSuccess: (res) => {
-          toast.success(`+${res.xpEarned} XP!`);
+          playSound('complete');
+          playNarration('lesson_done_ar');
+          toast.success(t(`تم الإكمال! +${res.xpEarned} Mana!`, `Completed! +${res.xpEarned} Mana!`));
+          setConfetti(true);
+          setTimeout(() => setConfetti(false), 3000);
+          // Check if level up
+          if (user && res.newLevel && res.newLevel > (user.level || 1)) {
+            setTimeout(() => setShowLevelUp(true), 1500);
+          }
           queryClient.invalidateQueries({ queryKey: getGetLessonQueryKey(lessonId) });
         }
       }
@@ -161,6 +192,37 @@ export default function LessonViewer() {
           </div>
         ))}
       </div>
+
+      <ConfettiEffect trigger={confetti} />
+      {showLevelUp && (
+        <LevelUpModal newLevel={user ? (user.level || 1) + 1 : 1} onClose={() => setShowLevelUp(false)} />
+      )}
+
+      {/* Fantasy Hero Bar */}
+      <motion.div
+        className="flex items-center gap-4 mb-6 p-4 rounded-xl bg-gradient-to-r from-primary/10 via-purple-500/5 to-transparent border border-primary/20"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <FantasyRankBadge level={user?.level || 1} xp={user?.xp || 0} size="sm" />
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            {lesson.titleAr}
+            <span className="text-muted-foreground text-sm font-normal">/ {lesson.titleEn}</span>
+          </h2>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1 text-accent font-bold">
+              <Zap className="w-3 h-3" />
+              {lesson.xpReward} Mana
+            </span>
+            {lesson.language && (
+              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
+                {lesson.language.toUpperCase()}
+              </span>
+            )}
+          </div>
+        </div>
+      </motion.div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
         <TabsList className="mb-6 p-1 bg-card border border-border w-full justify-start overflow-x-auto h-auto">
@@ -366,8 +428,6 @@ export default function LessonViewer() {
         </TabsContent>
       </Tabs>
       
-      {/* Fallback import for icons */}
-      <div className="hidden"><BookOpen /></div>
     </div>
   );
 }

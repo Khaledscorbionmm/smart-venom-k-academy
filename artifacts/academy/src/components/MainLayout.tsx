@@ -1,19 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Link, useLocation } from 'wouter';
 import { Button } from './ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { MessageCircle, Trophy, User as UserIcon, Shield } from 'lucide-react';
+import { useSound } from '@/contexts/SoundContext';
+import { FantasyRankBadge } from './FantasyRankBadge';
+import { getRank } from '@/lib/fantasyRanks';
+import { MessageCircle, Trophy, User as UserIcon, Shield, Flame, Zap, Sparkles } from 'lucide-react';
 import { useLogout } from '@workspace/api-client-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const { lang, setLang, t } = useLanguage();
   const { user, setUser } = useAuth();
+  const { playSound } = useSound();
   const logout = useLogout();
   const [location] = useLocation();
+  const [showWelcome, setShowWelcome] = useState(false);
 
   const toggleLang = () => {
     setLang(lang === 'ar' ? 'en' : 'ar');
+    playSound('click');
   };
 
   const handleLogout = () => {
@@ -28,62 +35,79 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <header className="border-b border-border/40 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <Link href="/" className="font-bold text-xl text-primary tracking-tight">
-              SMART VENOM K
+          <div className="flex items-center gap-6">
+            <Link href="/" className="flex items-center gap-2 font-bold text-xl text-primary tracking-tight group">
+              <motion.span
+                className="text-2xl"
+                whileHover={{ rotate: [0, -10, 10, 0], scale: 1.1 }}
+                transition={{ duration: 0.4 }}
+              >
+                {user ? getRank(user.level || 1).emoji : "👑"}
+              </motion.span>
+              <span className="group-hover:text-primary/80 transition-colors">SMART VENOM K</span>
             </Link>
 
             {user && (
-              <nav className="hidden md:flex items-center gap-6">
-                <Link href="/dashboard" className={`text-sm font-medium transition-colors hover:text-primary ${isActive('/dashboard') ? 'text-primary' : 'text-muted-foreground'}`}>
-                  {t('لوحة التحكم', 'Dashboard')}
-                </Link>
-                <Link href="/courses" className={`text-sm font-medium transition-colors hover:text-primary ${isActive('/courses') ? 'text-primary' : 'text-muted-foreground'}`}>
-                  {t('المسارات', 'Courses')}
-                </Link>
-                <Link href="/leaderboard" className={`text-sm font-medium transition-colors hover:text-primary ${isActive('/leaderboard') ? 'text-primary' : 'text-muted-foreground'}`}>
-                  {t('المتصدرين', 'Leaderboard')}
-                </Link>
+              <nav className="hidden md:flex items-center gap-5">
+                {[
+                  { path: '/dashboard', ar: 'لوحة التحكم', en: 'Dashboard', icon: Zap },
+                  { path: '/courses', ar: 'المسارات', en: 'Courses', icon: Trophy },
+                  { path: '/leaderboard', ar: 'المتصدرين', en: 'Leaderboard', icon: Flame },
+                ].map(item => (
+                  <Link
+                    key={item.path}
+                    href={item.path}
+                    className={`flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-primary ${isActive(item.path) ? 'text-primary' : 'text-muted-foreground'}`}
+                    onClick={() => playSound('click')}
+                  >
+                    <item.icon className="w-3.5 h-3.5" />
+                    {t(item.ar, item.en)}
+                  </Link>
+                ))}
               </nav>
             )}
           </div>
 
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={toggleLang} className="font-medium">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={toggleLang} className="font-medium text-xs">
               {lang === 'ar' ? 'EN' : 'عربي'}
             </Button>
             
             {user ? (
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 text-accent text-sm font-bold">
-                  <Trophy className="w-4 h-4" />
-                  {user.xp}
+              <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full bg-accent/10 text-accent text-xs font-bold">
+                  <Zap className="w-3.5 h-3.5" />
+                  {user.xp} Mana
+                </div>
+                <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-full bg-orange-500/10 text-orange-500 text-xs font-bold">
+                  <Flame className="w-3 h-3" />
+                  {user.streak || 0}
                 </div>
                 
                 {user.role === 'admin' && (
                   <Link href="/admin">
-                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
-                      <Shield className="w-5 h-5" />
+                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary h-8 w-8">
+                      <Shield className="w-4 h-4" />
                     </Button>
                   </Link>
                 )}
                 
                 <Link href="/profile">
-                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
-                    <UserIcon className="w-5 h-5" />
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary h-8 w-8">
+                    <FantasyRankBadge level={user.level || 1} xp={user.xp || 0} size="sm" />
                   </Button>
                 </Link>
-                <Button variant="outline" size="sm" onClick={handleLogout} className="hidden sm:flex">
+                <Button variant="outline" size="sm" onClick={handleLogout} className="hidden sm:flex h-8 text-xs">
                   {t('خروج', 'Logout')}
                 </Button>
               </div>
             ) : (
               <>
-                <Link href="/login" className="text-sm font-medium hover:text-primary transition-colors">
+                <Link href="/login" className="text-xs sm:text-sm font-medium hover:text-primary transition-colors">
                   {t('دخول', 'Login')}
                 </Link>
                 <Link href="/register">
-                  <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 h-8 text-xs" onClick={() => playSound('click')}>
                     {t('ابدأ مجاناً', 'Start Free')}
                   </Button>
                 </Link>

@@ -6,3 +6,75 @@ id = "UT611dLccSNM1Fn85huqA"
 uri = "file://exports/smart-venom-k-academy.tar.gz"
 type = "unspecified"
 title = "Smart Venom K Academy - الكود الكامل مضغوط"
+
+[[outputs]]
+id = "QA-xNcSEdq0QOx7lahz1N"
+uri = "file://attached_assets/generated_audio/sound_effect_ui_click.mp3"
+type = "audio"
+title = "ui_click"
+
+[[outputs]]
+id = "a5H6Rw42hy_QVicSxIDip"
+uri = "file://attached_assets/generated_audio/sound_effect_success.mp3"
+type = "audio"
+title = "success"
+
+[[outputs]]
+id = "4hZaOWxKmJwEUFabAPV3t"
+uri = "file://attached_assets/generated_audio/sound_effect_lesson_complete.mp3"
+type = "audio"
+title = "lesson_complete"
+
+[[outputs]]
+id = "n-E9pfOefRWJEbD3wl46N"
+uri = "file://attached_assets/generated_audio/sound_effect_streak_fire.mp3"
+type = "audio"
+title = "streak_fire"
+
+[[outputs]]
+id = "JcBhUQ12eeRBfdU5r9iWG"
+uri = "file://attached_assets/generated_audio/sound_effect_xp_gain.mp3"
+type = "audio"
+title = "xp_gain"
+
+[[outputs]]
+id = "aAddC1IEvNzf7mrG22yVK"
+uri = "file://attached_assets/generated_audio/sound_effect_quest_unlock.mp3"
+type = "audio"
+title = "quest_unlock"
+
+[[outputs]]
+id = "HvTYqkNTdu3ZFDvye16-F"
+uri = "file://attached_assets/generated_audio/speech_welcome_arabic.mp3"
+type = "audio"
+title = "welcome_arabic"
+
+[[outputs]]
+id = "d2c06CEinRYHLHZSgABAX"
+uri = "file://attached_assets/generated_audio/speech_welcome_english.mp3"
+type = "audio"
+title = "welcome_english"
+
+[[outputs]]
+id = "bv3EByV1zZTD_1Tx7ZBh1"
+uri = "file://attached_assets/generated_audio/speech_lesson_done_ar.mp3"
+type = "audio"
+title = "lesson_done_ar"
+
+[[outputs]]
+id = "pzGAQ4YJ1T_i3xE_56soM"
+uri = "file://attached_assets/generated_audio/speech_lesson_done_en.mp3"
+type = "audio"
+title = "lesson_done_en"
+
+[[outputs]]
+id = "VbvCMJu5QLBmTdhFcPwds"
+uri = "file://attached_assets/generated_audio/speech_streak_3_ar.mp3"
+type = "audio"
+title = "streak_3_ar"
+
+[[outputs]]
+id = "gbm60rgUDm2NwG8JUu0TB"
+uri = "file://attached_assets/generated_audio/speech_streak_3_en.mp3"
+type = "audio"
+title = "streak_3_en"

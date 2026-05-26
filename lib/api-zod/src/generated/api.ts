@@ -198,6 +198,8 @@ export const GetLessonResponse = zod.object({
   "language": zod.string().optional(),
   "videoUrlAr": zod.string().nullish(),
   "videoUrlEn": zod.string().nullish(),
+  "audioUrlAr": zod.string().nullish(),
+  "audioUrlEn": zod.string().nullish(),
   "xpReward": zod.number(),
   "order": zod.number(),
   "isFree": zod.boolean(),

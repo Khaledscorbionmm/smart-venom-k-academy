@@ -14,6 +14,8 @@ export const lessonsTable = pgTable("lessons", {
   language: text("language").notNull().default("python"),
   videoUrlAr: text("video_url_ar"),
   videoUrlEn: text("video_url_en"),
+  audioUrlAr: text("audio_url_ar"),
+  audioUrlEn: text("audio_url_en"),
   xpReward: integer("xp_reward").notNull().default(50),
   order: integer("order").notNull().default(0),
   isFree: boolean("is_free").notNull().default(false),

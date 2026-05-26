@@ -54,6 +54,8 @@ router.get("/lessons/:id", async (req, res) => {
     chapterId: chapter.id,
     courseSlug: course.slug,
     isCompleted,
+    audioUrlAr: lesson.audioUrlAr,
+    audioUrlEn: lesson.audioUrlEn,
     quizQuestions: quizQuestions.map(q => {
       // options stored as string[] — convert to { id, textAr, textEn } objects
       const rawOptions = (q.options as unknown as string[]) || [];

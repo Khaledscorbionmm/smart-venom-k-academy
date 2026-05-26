@@ -2,21 +2,24 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
-import { Play, Pause, Square, Volume2, Languages } from "lucide-react";
+import { Play, Pause, Square, Volume2, Languages, Headphones } from "lucide-react";
 
 type Props = {
   textAr: string;
   textEn: string;
+  audioUrlAr?: string | null;
+  audioUrlEn?: string | null;
   label?: string;
 };
 
-export function AudioPlayer({ textAr, textEn, label }: Props) {
+export function AudioPlayer({ textAr, textEn, audioUrlAr, audioUrlEn, label }: Props) {
   const [supported, setSupported] = useState(true);
   const [playing, setPlaying] = useState(false);
   const [paused, setPaused] = useState(false);
   const [activeLang, setActiveLang] = useState<"ar" | "en">("ar");
   const [rate, setRate] = useState(1);
   const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.speechSynthesis) {
@@ -24,10 +27,35 @@ export function AudioPlayer({ textAr, textEn, label }: Props) {
     }
     return () => {
       try { window.speechSynthesis?.cancel(); } catch {}
+      try { audioRef.current?.pause(); } catch {}
     };
   }, []);
 
+  const hasPreRecordedAr = !!audioUrlAr;
+  const hasPreRecordedEn = !!audioUrlEn;
+
+  const playPreRecorded = (url: string, lang: "ar" | "en") => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    window.speechSynthesis?.cancel();
+    const audio = new Audio(url);
+    audio.playbackRate = rate;
+    audio.onended = () => { setPlaying(false); setPaused(false); };
+    audio.onerror = () => { setPlaying(false); setPaused(false); };
+    audioRef.current = audio;
+    setActiveLang(lang);
+    setPlaying(true);
+    setPaused(false);
+    audio.play().catch(() => { setPlaying(false); });
+  };
+
   const speak = (lang: "ar" | "en") => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const text = lang === "ar" ? textAr : textEn;
@@ -46,6 +74,11 @@ export function AudioPlayer({ textAr, textEn, label }: Props) {
   };
 
   const togglePause = () => {
+    if (audioRef.current) {
+      if (paused) { audioRef.current.play().catch(() => {}); setPaused(false); }
+      else { audioRef.current.pause(); setPaused(true); }
+      return;
+    }
     if (!window.speechSynthesis) return;
     if (paused) { window.speechSynthesis.resume(); setPaused(false); }
     else { window.speechSynthesis.pause(); setPaused(true); }
@@ -53,11 +86,22 @@ export function AudioPlayer({ textAr, textEn, label }: Props) {
 
   const stop = () => {
     window.speechSynthesis?.cancel();
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     setPlaying(false);
     setPaused(false);
   };
 
-  if (!supported) return null;
+  if (!supported && !hasPreRecordedAr && !hasPreRecordedEn) return null;
+
+  const handlePlayAr = () => {
+    if (hasPreRecordedAr && audioUrlAr) playPreRecorded(audioUrlAr, "ar");
+    else speak("ar");
+  };
+
+  const handlePlayEn = () => {
+    if (hasPreRecordedEn && audioUrlEn) playPreRecorded(audioUrlEn, "en");
+    else speak("en");
+  };
 
   return (
     <Card className="border-primary/20 bg-gradient-to-r from-primary/5 via-purple-500/5 to-transparent p-4">
@@ -67,28 +111,35 @@ export function AudioPlayer({ textAr, textEn, label }: Props) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="font-bold text-sm">{label || "استمع للدرس / Listen to Lesson"}</div>
-          <div className="text-xs text-muted-foreground">شغّل التسجيل الصوتي بأي لغة</div>
+          <div className="text-xs text-muted-foreground">
+            {hasPreRecordedAr || hasPreRecordedEn
+              ? "تسجيل احترافي بصوت واضح / Professional narration"
+              : "شغّل التسجيل الصوتي بأي لغة"}
+          </div>
         </div>
+        {(hasPreRecordedAr || hasPreRecordedEn) && (
+          <Headphones className="w-4 h-4 text-green-400 shrink-0" />
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <Button
           size="sm"
           variant={playing && activeLang === "ar" ? "default" : "outline"}
-          onClick={() => speak("ar")}
+          onClick={handlePlayAr}
           className="gap-1.5"
         >
           <Languages className="w-3.5 h-3.5" />
-          عربي
+          {hasPreRecordedAr ? "عربي (تسجيل)" : "عربي (TTS)"}
         </Button>
         <Button
           size="sm"
           variant={playing && activeLang === "en" ? "default" : "outline"}
-          onClick={() => speak("en")}
+          onClick={handlePlayEn}
           className="gap-1.5"
         >
           <Languages className="w-3.5 h-3.5" />
-          English
+          {hasPreRecordedEn ? "English (Recorded)" : "English (TTS)"}
         </Button>
 
         {playing && (
@@ -109,7 +160,10 @@ export function AudioPlayer({ textAr, textEn, label }: Props) {
         <span className="text-xs text-muted-foreground shrink-0">السرعة / Speed</span>
         <Slider
           value={[rate]}
-          onValueChange={(v) => setRate(v[0])}
+          onValueChange={(v) => {
+            setRate(v[0]);
+            if (audioRef.current) audioRef.current.playbackRate = v[0];
+          }}
           min={0.5}
           max={1.75}
           step={0.25}

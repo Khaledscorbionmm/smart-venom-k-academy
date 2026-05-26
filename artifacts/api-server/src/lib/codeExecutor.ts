@@ -164,8 +164,15 @@ async function runDockerCpp(code: string, workDir: string): Promise<ExecutionRes
 async function runDockerRust(code: string, workDir: string): Promise<ExecutionResult> {
   writeFileSync(join(workDir, "main.rs"), code);
   const start = Date.now();
-  // Add writable /tmp for rustc temp files
-  const compile = await execDocker(DOCKER_IMAGES.rust, ["sh", "-c", "TMPDIR=/tmp rustc -o /workspace/main /workspace/main.rs 2>&1"], workDir);
+  // Rust compilation is heavy: need 2x timeout and 512MB memory for rustc
+  const compile = await execDocker(
+    DOCKER_IMAGES.rust,
+    ["sh", "-c", "TMPDIR=/tmp rustc -o /workspace/main /workspace/main.rs 2>&1"],
+    workDir,
+    TIMEOUT_MS * 2,
+    "512m",
+    "1.0"
+  );
   if (compile.exitCode !== 0) {
     return {
       success: false,

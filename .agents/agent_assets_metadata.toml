@@ -84,3 +84,63 @@ id = "f_WUv9SwVTJ2nV9rTA5MH"
 uri = "file://attached_assets/generated_audio/welcome_svk_academy.mp3"
 type = "audio"
 title = "welcome_svk_arabic"
+
+[[outputs]]
+id = "YHheNrZxBg9EOyQrM8zXo"
+uri = "file://attached_assets/generated_audio/lesson_python_intro.mp3"
+type = "audio"
+title = "lesson_python_intro"
+
+[[outputs]]
+id = "860NXnmAxi9Xxp_f09_ET"
+uri = "file://attached_assets/generated_audio/lesson_javascript_intro.mp3"
+type = "audio"
+title = "lesson_javascript_intro"
+
+[[outputs]]
+id = "ZRx3y-ZGtjIRFoa6_seVI"
+uri = "file://attached_assets/generated_audio/lesson_java_intro.mp3"
+type = "audio"
+title = "lesson_java_intro"
+
+[[outputs]]
+id = "M2IvlIIA7P8wG_WqqHdIL"
+uri = "file://attached_assets/generated_audio/lesson_cpp_intro.mp3"
+type = "audio"
+title = "lesson_cpp_intro"
+
+[[outputs]]
+id = "R-CDOnNh5TNAHh1dyVAKJ"
+uri = "file://attached_assets/generated_audio/lesson_rust_intro.mp3"
+type = "audio"
+title = "lesson_rust_intro"
+
+[[outputs]]
+id = "ONyylJ_9t51W55hXRITSs"
+uri = "file://attached_assets/generated_audio/lesson_go_intro.mp3"
+type = "audio"
+title = "lesson_go_intro"
+
+[[outputs]]
+id = "pvoP1Zx9On1Va_VuD6KZA"
+uri = "file://attached_assets/generated_audio/lesson_typescript_intro.mp3"
+type = "audio"
+title = "lesson_typescript_intro"
+
+[[outputs]]
+id = "CE-M27YPT0IjywcjZuIf5"
+uri = "file://attached_assets/generated_audio/lesson_english_intro.mp3"
+type = "audio"
+title = "lesson_english_intro"
+
+[[outputs]]
+id = "MkL_v5U2048aoD_WAp86M"
+uri = "file://attached_assets/generated_audio/lesson_german_intro.mp3"
+type = "audio"
+title = "lesson_german_intro"
+
+[[outputs]]
+id = "qv8ekQmzMhQye0PyHGJnn"
+uri = "file://attached_assets/generated_audio/lesson_french_intro.mp3"
+type = "audio"
+title = "lesson_french_intro"

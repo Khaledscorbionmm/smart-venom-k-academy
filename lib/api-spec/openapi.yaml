@@ -940,6 +940,10 @@ components:
           type: ["string", "null"]
         videoUrlEn:
           type: ["string", "null"]
+        audioUrlAr:
+          type: ["string", "null"]
+        audioUrlEn:
+          type: ["string", "null"]
         xpReward:
           type: integer
         order:

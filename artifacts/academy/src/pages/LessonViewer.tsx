@@ -222,6 +222,8 @@ export default function LessonViewer() {
         <AudioPlayer
           textAr={`${lesson.titleAr}. ${lesson.contentAr}`}
           textEn={`${lesson.titleEn}. ${lesson.contentEn}`}
+          audioUrlAr={lesson.audioUrlAr || undefined}
+          audioUrlEn={lesson.audioUrlEn || undefined}
         />
       </div>
 

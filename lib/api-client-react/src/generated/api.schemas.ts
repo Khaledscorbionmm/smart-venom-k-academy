@@ -208,6 +208,10 @@ export interface LessonDetail {
   videoUrlAr?: string | null;
   /** @nullable */
   videoUrlEn?: string | null;
+  /** @nullable */
+  audioUrlAr?: string | null;
+  /** @nullable */
+  audioUrlEn?: string | null;
   xpReward: number;
   order: number;
   isFree: boolean;

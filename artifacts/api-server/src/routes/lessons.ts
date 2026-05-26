@@ -3,6 +3,7 @@ import { db, lessonsTable, chaptersTable, coursesTable, quizQuestionsTable, user
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { XP_TO_LEVEL } from "../lib/auth";
+import { executeCode } from "../lib/codeExecutor";
 
 const router = Router();
 
@@ -137,51 +138,12 @@ router.post("/lessons/:id/execute", async (req, res) => {
     return;
   }
 
-  const start = Date.now();
   try {
-    let output = "";
-    let success = true;
-    let error: string | null = null;
-
-    if (language === "javascript") {
-      // Safe JS evaluation using Function constructor
-      const logs: string[] = [];
-      const mockConsole = {
-        log: (...args: unknown[]) => logs.push(args.map(a => typeof a === "object" ? JSON.stringify(a, null, 2) : String(a)).join(" ")),
-        error: (...args: unknown[]) => logs.push("ERROR: " + args.map(String).join(" ")),
-        warn: (...args: unknown[]) => logs.push("WARN: " + args.map(String).join(" ")),
-      };
-      try {
-        const fn = new Function("console", `"use strict";\n${code}`);
-        fn(mockConsole);
-        output = logs.join("\n") || "(no output)";
-      } catch (e: unknown) {
-        success = false;
-        error = String(e);
-        output = `Error: ${error}`;
-      }
-    } else {
-      // For other languages, return a helpful message with example output
-      output = simulateLanguageOutput(language, code);
-    }
-
-    const executionTime = Date.now() - start;
-    res.json({ success, output, error, executionTime });
+    const result = await executeCode(language, code);
+    res.json(result);
   } catch (e: unknown) {
-    res.json({ success: false, output: "", error: String(e), executionTime: Date.now() - start });
+    res.status(500).json({ success: false, output: "", error: String(e), executionTime: 0 });
   }
 });
-
-function simulateLanguageOutput(language: string, code: string): string {
-  const langMessages: Record<string, string> = {
-    python: "🐍 Python Code Preview\n━━━━━━━━━━━━━━━━━━━\nThis code will execute in the Python environment.\nTo run Python code locally, install Python 3.x and use: python3 script.py\n\nCode is syntactically valid and ready to run!",
-    typescript: "🔷 TypeScript Code Preview\n━━━━━━━━━━━━━━━━━━━\nThis TypeScript code is ready to compile.\nCompile with: tsc script.ts && node script.js\n\nCode structure looks correct!",
-    java: "☕ Java Code Preview\n━━━━━━━━━━━━━━━━━━━\nThis Java code is ready to compile.\nCompile with: javac Main.java && java Main\n\nCode structure looks correct!",
-    cpp: "⚡ C++ Code Preview\n━━━━━━━━━━━━━━━━━━━\nThis C++ code is ready to compile.\nCompile with: g++ -o program program.cpp && ./program\n\nCode structure looks correct!",
-    rust: "🦀 Rust Code Preview\n━━━━━━━━━━━━━━━━━━━\nThis Rust code is ready to compile.\nCompile with: rustc main.rs && ./main\n\nCode structure looks correct!",
-    go: "🐹 Go Code Preview\n━━━━━━━━━━━━━━━━━━━\nThis Go code is ready to compile.\nRun with: go run main.go\n\nCode structure looks correct!",
-  };
-  return langMessages[language] || `Code preview for ${language}:\n\nCode received and validated!\nTo execute, use the appropriate compiler/interpreter for ${language}.`;
-}
 
 export default router;

@@ -65,8 +65,13 @@ export function FloatingMascot() {
                   </button>
                   <button
                     onClick={() => {
-                      const audio = new Audio('/speech_welcome_arabic.mp3');
-                      audio.play();
+                      // Gracefully use Web Speech API TTS since audio files may not exist
+                      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+                        const utterance = new SpeechSynthesisUtterance(message.ar);
+                        utterance.lang = "ar-SA";
+                        utterance.rate = 0.85;
+                        window.speechSynthesis.speak(utterance);
+                      }
                     }}
                     className="px-3 py-1.5 rounded-lg bg-accent/10 text-accent text-xs font-bold hover:bg-accent/20 transition-colors flex items-center justify-center gap-1"
                   >

@@ -15,22 +15,22 @@ const SoundContext = createContext<SoundContextType>({
 });
 
 const SOUND_PATHS: Record<SoundType, string> = {
-  click: '/sound_effect_ui_click.mp3',
-  success: '/sound_effect_success.mp3',
-  levelUp: '/sound_effect_lesson_complete.mp3',
-  xpGain: '/sound_effect_xp_gain.mp3',
-  streakFire: '/sound_effect_streak_fire.mp3',
-  questUnlock: '/sound_effect_quest_unlock.mp3',
-  complete: '/sound_effect_lesson_complete.mp3',
+  click: '/audio/sound_effect_ui_click.mp3',
+  success: '/audio/sound_effect_success.mp3',
+  levelUp: '/audio/sound_effect_lesson_complete.mp3',
+  xpGain: '/audio/sound_effect_xp_gain.mp3',
+  streakFire: '/audio/sound_effect_streak_fire.mp3',
+  questUnlock: '/audio/sound_effect_quest_unlock.mp3',
+  complete: '/audio/sound_effect_lesson_complete.mp3',
 };
 
 const NARRATION_MAP: Record<string, string> = {
-  'welcome_ar': '/speech_welcome_arabic.mp3',
-  'welcome_en': '/speech_welcome_english.mp3',
-  'lesson_done_ar': '/speech_lesson_done_ar.mp3',
-  'lesson_done_en': '/speech_lesson_done_en.mp3',
-  'streak_3_ar': '/speech_streak_3_ar.mp3',
-  'streak_3_en': '/speech_streak_3_en.mp3',
+  'welcome_ar': '/audio/speech_welcome_arabic.mp3',
+  'welcome_en': '/audio/speech_welcome_english.mp3',
+  'lesson_done_ar': '/audio/speech_lesson_done_ar.mp3',
+  'lesson_done_en': '/audio/speech_lesson_done_en.mp3',
+  'streak_3_ar': '/audio/speech_streak_3_ar.mp3',
+  'streak_3_en': '/audio/speech_streak_3_en.mp3',
 };
 
 export function SoundProvider({ children }: { children: React.ReactNode }) {
@@ -49,7 +49,9 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
       const a = getAudio(SOUND_PATHS[type]);
       a.currentTime = 0;
       a.volume = 0.35;
-      void a.play();
+      a.play().catch(() => {
+        // Audio playback not critical; suppress DOMException
+      });
     } catch {
       // Audio not critical
     }
@@ -62,7 +64,9 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
       const a = getAudio(src);
       a.currentTime = 0;
       a.volume = 0.7;
-      void a.play();
+      a.play().catch(() => {
+        // Audio playback not critical; suppress DOMException
+      });
     } catch {}
   }, [getAudio]);
 

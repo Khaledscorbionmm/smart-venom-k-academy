@@ -39,6 +39,15 @@ A comprehensive Arabic+English programming education platform with 7 programming
 - Courses use `isActive` flag and `sortOrder` for ordering
 - Quiz answers stored by index as string (`correct_option_id` column)
 - `courses.id` must be used explicitly in SQL subqueries (Drizzle interpolates as bare `"id"` otherwise)
+- **Code execution engine**: Docker-based sandbox with 5-10s timeout, 256MB-1GB RAM, network-isolated containers per language:
+  - Python: `python:3.11-slim`
+  - JavaScript: in-process `new Function()`
+  - TypeScript: `denoland/deno:alpine`
+  - Java: `eclipse-temurin:11-jdk-alpine`
+  - C++: `gcc:14`
+  - Rust: `rust:1.78-slim`
+  - Go: `golang:1.22-alpine` (needs 1GB + 1.5 CPUs for compilation)
+- Audio assets served from `/audio/`; all `Audio.play()` calls wrapped with `.catch()` to suppress DOMExceptions
 
 ## Product
 

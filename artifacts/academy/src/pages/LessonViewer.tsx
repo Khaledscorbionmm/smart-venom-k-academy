@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { ArrowRight, ArrowLeft, Play, CheckCircle2, Code2, BrainCircuit, BookOpen, Sparkles, Target, Baby, GraduationCap, Zap, Flame, Trophy } from "lucide-react";
+import { ArrowRight, ArrowLeft, Play, CheckCircle2, Code2, BrainCircuit, BookOpen, Sparkles, Target, Baby, GraduationCap, Zap, Flame, Trophy, Loader2, Terminal, AlertTriangle, Clock } from "lucide-react";
 import Editor from "@monaco-editor/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -38,6 +38,8 @@ export default function LessonViewer() {
 
   const [code, setCode] = useState("");
   const [output, setOutput] = useState("");
+  const [execStatus, setExecStatus] = useState<'idle' | 'running' | 'success' | 'error'>('idle');
+  const [execTime, setExecTime] = useState<number | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [quizResults, setQuizResults] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'content' | 'quiz'>('content');
@@ -48,22 +50,31 @@ export default function LessonViewer() {
   }
 
   useEffect(() => {
-    playNarration("welcome_ar");
-  }, []);
+    // Delay narration to avoid blocking initial render and reduce audio conflicts
+    const timer = setTimeout(() => playNarration("welcome_ar"), 800);
+    return () => clearTimeout(timer);
+  }, [playNarration]);
 
   if (isLoading || !lesson) {
     return <div className="p-8 text-center">{t('جاري التحميل...', 'Loading...')}</div>;
   }
 
   const handleRunCode = () => {
+    setExecStatus('running');
+    setExecTime(null);
     executeCode.mutate(
       { id: lessonId, data: { code, language: lesson.language || 'python' } },
       {
         onSuccess: (res) => {
+          setExecStatus(res.success ? 'success' : 'error');
+          setExecTime(res.executionTime ?? null);
           setOutput(res.output || res.error || t('تم التشغيل بنجاح، لا يوجد مخرجات', 'Executed successfully, no output'));
         },
-        onError: () => {
+        onError: (err) => {
+          setExecStatus('error');
+          setExecTime(null);
           toast.error(t('حدث خطأ أثناء تشغيل الكود', 'Error executing code'));
+          setOutput(String(err));
         }
       }
     );
@@ -279,8 +290,15 @@ export default function LessonViewer() {
                     <Code2 className="w-4 h-4" />
                     <span className="text-xs sm:text-sm font-medium uppercase tracking-wider">{lesson.language}</span>
                   </div>
-                  <Button size="sm" onClick={handleRunCode} disabled={executeCode.isPending} className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs px-4">
-                    {executeCode.isPending ? t('جاري...', 'Running...') : <><Play className="w-3 h-3 me-1" /> {t('تشغيل', 'Run')}</>}
+                  <Button size="sm" onClick={handleRunCode} disabled={executeCode.isPending} className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs px-4 transition-all">
+                    {executeCode.isPending ? (
+                      <>
+                        <Loader2 className="w-3 h-3 me-1 animate-spin" />
+                        {t('جاري التشغيل...', 'Running...')}
+                      </>
+                    ) : (
+                      <><Play className="w-3 h-3 me-1" /> {t('تشغيل', 'Run')}</>
+                    )}
                   </Button>
                 </CardHeader>
                 <div className="h-[300px] sm:h-[400px]">
@@ -301,13 +319,40 @@ export default function LessonViewer() {
                 </div>
               </Card>
 
-              {output && (
-                <Card className="bg-black border-border/50 overflow-hidden">
-                  <CardHeader className="p-2 px-4 bg-zinc-900/50 border-b border-zinc-800">
-                    <span className="text-xs text-zinc-400 font-mono">{t('المخرجات', 'Output')}</span>
+              {(output || execStatus !== 'idle') && (
+                <Card className={`border-border/50 overflow-hidden ${execStatus === 'error' ? 'border-red-500/50' : execStatus === 'success' ? 'border-green-500/50' : 'border-border/50'}`}>
+                  <CardHeader className="p-2 px-4 bg-zinc-900/80 border-b border-zinc-800 flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Terminal className="w-3.5 h-3.5 text-zinc-400" />
+                      <span className="text-xs text-zinc-400 font-mono">{t('المخرجات', 'Output')}</span>
+                      {execStatus === 'running' && (
+                        <span className="flex items-center gap-1 text-xs text-yellow-400">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          {t('جاري التنفيذ...', 'Executing...')}
+                        </span>
+                      )}
+                      {execStatus === 'success' && (
+                        <span className="flex items-center gap-1 text-xs text-green-400">
+                          <CheckCircle2 className="w-3 h-3" />
+                          {t('تم التنفيذ بنجاح', 'Success')}
+                        </span>
+                      )}
+                      {execStatus === 'error' && (
+                        <span className="flex items-center gap-1 text-xs text-red-400">
+                          <AlertTriangle className="w-3 h-3" />
+                          {t('خطأ في التنفيذ', 'Execution Error')}
+                        </span>
+                      )}
+                    </div>
+                    {execTime !== null && (
+                      <span className="flex items-center gap-1 text-xs text-zinc-500">
+                        <Clock className="w-3 h-3" />
+                        {execTime}ms
+                      </span>
+                    )}
                   </CardHeader>
-                  <CardContent className="p-4">
-                    <pre className="text-sm text-green-400 font-mono whitespace-pre-wrap">{output}</pre>
+                  <CardContent className="p-4 bg-black">
+                    <pre className={`text-sm font-mono whitespace-pre-wrap ${execStatus === 'error' ? 'text-red-400' : 'text-green-400'}`}>{output}</pre>
                   </CardContent>
                 </Card>
               )}

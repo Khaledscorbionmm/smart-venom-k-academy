@@ -14,6 +14,9 @@ const PgSession = connectPgSimple(session);
 
 const app: Express = express();
 
+// Trust proxy headers behind Replit's reverse proxy (required for express-rate-limit accuracy)
+app.set("trust proxy", 1);
+
 // Security: Helmet headers
 app.use(helmet({
   contentSecurityPolicy: {

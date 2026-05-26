@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Trophy, Flame, Code, Medal, BookOpen, Star } from "lucide-react";
+import { DashboardSkeleton } from "@/components/LoadingSkeleton";
 
 export default function Profile() {
   const { t } = useLanguage();
@@ -14,7 +15,7 @@ export default function Profile() {
   const { data: achievements, isLoading: loadingAchievements } = useGetUserAchievements();
 
   if (loadingProgress || loadingAchievements) {
-    return <div className="p-8 text-center">{t('جاري التحميل...', 'Loading...')}</div>;
+    return <DashboardSkeleton />;
   }
 
   return (

@@ -52,6 +52,21 @@ export default function Admin() {
 
   if (user?.role !== "admin") return <Redirect to="/dashboard" />;
 
+  // Show skeleton while admin data loads
+  const isAdminDataLoading = !stats || !users || !subscriptions;
+  if (isAdminDataLoading) {
+    return (
+      <div className="container mx-auto p-4 md:p-8 space-y-6">
+        <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="h-24 bg-card rounded-xl border border-border animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const invalidateSubs = () => {
     queryClient.invalidateQueries({ queryKey: getGetSubscriptionsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });

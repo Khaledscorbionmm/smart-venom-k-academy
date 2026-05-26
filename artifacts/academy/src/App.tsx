@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { FloatingMascot } from "@/components/FloatingMascot";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { PageSkeleton } from "@/components/LoadingSkeleton";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { SoundProvider } from "./contexts/SoundContext";
@@ -28,7 +29,7 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <PageSkeleton />;
   }
 
   if (!user) {

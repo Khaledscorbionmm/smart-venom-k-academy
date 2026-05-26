@@ -143,14 +143,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* WhatsApp FAB */}
+      {/* WhatsApp FAB - positioned away from mascot on mobile */}
       <a
         href="https://wa.me/201034009418"
         target="_blank"
         rel="noopener noreferrer"
-        className={`fixed right-6 w-14 h-14 bg-green-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-green-600 hover:scale-110 transition-all z-50 ${user ? 'bottom-24 md:bottom-6' : 'bottom-6'}`}
+        className={`fixed w-12 h-12 sm:w-14 sm:h-14 bg-green-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-green-600 hover:scale-110 transition-all z-40 ${user ? 'bottom-24 left-4 sm:left-auto sm:right-6 sm:bottom-6' : 'left-4 sm:left-auto sm:right-6 bottom-6'}`}
       >
-        <MessageCircle className="w-7 h-7" />
+        <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7" />
       </a>
       
       {/* Fallback imports for mobile nav */}

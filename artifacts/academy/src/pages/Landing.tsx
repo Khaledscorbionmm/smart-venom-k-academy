@@ -21,7 +21,16 @@ export default function Landing() {
   const { user, isLoading } = useAuth();
   const { data: courses } = useGetCourses();
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <p className="text-muted-foreground text-sm">{t('جاري التحميل...', 'Loading...')}</p>
+        </div>
+      </div>
+    );
+  }
   if (user) return <Redirect to="/dashboard" />;
 
   const totalLessons = courses?.reduce((sum, c) => sum + (c.totalLessons || 0), 0) || 0;

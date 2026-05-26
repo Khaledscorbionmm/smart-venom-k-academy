@@ -78,3 +78,9 @@ id = "gbm60rgUDm2NwG8JUu0TB"
 uri = "file://attached_assets/generated_audio/speech_streak_3_en.mp3"
 type = "audio"
 title = "streak_3_en"
+
+[[outputs]]
+id = "f_WUv9SwVTJ2nV9rTA5MH"
+uri = "file://attached_assets/generated_audio/welcome_svk_academy.mp3"
+type = "audio"
+title = "welcome_svk_arabic"

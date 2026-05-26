@@ -85,7 +85,7 @@ export default function Courses() {
                     {course.totalLessons} {t('درس', 'Lessons')}
                   </span>
                   <span>•</span>
-                  <span>{course.price === 0 ? t('مجاني', 'Free') : `$${course.price}`}</span>
+                  <span>{course.price === 0 ? t('مجاني', 'Free') : `${course.price} ${t('ج.م', 'EGP')}`}</span>
                 </div>
               </CardContent>
               <CardFooter>

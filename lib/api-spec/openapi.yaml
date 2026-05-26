@@ -625,6 +625,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/users/{id}/logins:
+    get:
+      operationId: getAdminUserLogins
+      tags: [admin]
+      summary: Get user login history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User login history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserLogin"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /admin/stats:
     get:
       operationId: getAdminStats
@@ -715,6 +742,12 @@ components:
           type: string
           enum: [ar, en]
         avatarUrl:
+          type: ["string", "null"]
+        lastLoginAt:
+          type: ["string", "null"]
+        lastLoginIp:
+          type: ["string", "null"]
+        loginLocation:
           type: ["string", "null"]
         createdAt:
           type: string
@@ -1234,6 +1267,23 @@ components:
         level:
           type: integer
 
+    UserLogin:
+      type: object
+      required: [id, userId, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        ipAddress:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        userAgent:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
     AdminStats:
       type: object
       required: [totalUsers, totalCourses, totalLessons, totalSubscriptions, pendingSubscriptions, activeSubscriptions, totalXpAwarded, recentSignups]
@@ -1253,4 +1303,8 @@ components:
         totalXpAwarded:
           type: integer
         recentSignups:
+          type: integer
+        todaySignups:
+          type: integer
+        todayLogins:
           type: integer

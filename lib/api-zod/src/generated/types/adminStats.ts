@@ -15,4 +15,6 @@ export interface AdminStats {
   activeSubscriptions: number;
   totalXpAwarded: number;
   recentSignups: number;
+  todaySignups?: number;
+  todayLogins?: number;
 }

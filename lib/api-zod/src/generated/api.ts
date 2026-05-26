@@ -52,6 +52,9 @@ export const LoginResponse = zod.object({
   "streak": zod.number(),
   "languagePreference": zod.enum(['ar', 'en']),
   "avatarUrl": zod.string().nullish(),
+  "lastLoginAt": zod.string().nullish(),
+  "lastLoginIp": zod.string().nullish(),
+  "loginLocation": zod.string().nullish(),
   "createdAt": zod.string()
 })
 })
@@ -78,6 +81,9 @@ export const GetMeResponse = zod.object({
   "streak": zod.number(),
   "languagePreference": zod.enum(['ar', 'en']),
   "avatarUrl": zod.string().nullish(),
+  "lastLoginAt": zod.string().nullish(),
+  "lastLoginIp": zod.string().nullish(),
+  "loginLocation": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -292,6 +298,9 @@ export const GetDashboardResponse = zod.object({
   "streak": zod.number(),
   "languagePreference": zod.enum(['ar', 'en']),
   "avatarUrl": zod.string().nullish(),
+  "lastLoginAt": zod.string().nullish(),
+  "lastLoginIp": zod.string().nullish(),
+  "loginLocation": zod.string().nullish(),
   "createdAt": zod.string()
 }),
   "completedLessons": zod.number(),
@@ -391,6 +400,9 @@ export const UpdateProfileResponse = zod.object({
   "streak": zod.number(),
   "languagePreference": zod.enum(['ar', 'en']),
   "avatarUrl": zod.string().nullish(),
+  "lastLoginAt": zod.string().nullish(),
+  "lastLoginIp": zod.string().nullish(),
+  "loginLocation": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -542,6 +554,9 @@ export const AdminGetUsersResponseItem = zod.object({
   "streak": zod.number(),
   "languagePreference": zod.enum(['ar', 'en']),
   "avatarUrl": zod.string().nullish(),
+  "lastLoginAt": zod.string().nullish(),
+  "lastLoginIp": zod.string().nullish(),
+  "loginLocation": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const AdminGetUsersResponse = zod.array(AdminGetUsersResponseItem)
@@ -570,8 +585,29 @@ export const AdminUpdateUserResponse = zod.object({
   "streak": zod.number(),
   "languagePreference": zod.enum(['ar', 'en']),
   "avatarUrl": zod.string().nullish(),
+  "lastLoginAt": zod.string().nullish(),
+  "lastLoginIp": zod.string().nullish(),
+  "loginLocation": zod.string().nullish(),
   "createdAt": zod.string()
 })
+
+
+/**
+ * @summary Get user login history
+ */
+export const GetAdminUserLoginsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetAdminUserLoginsResponseItem = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "ipAddress": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "userAgent": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const GetAdminUserLoginsResponse = zod.array(GetAdminUserLoginsResponseItem)
 
 
 /**
@@ -585,7 +621,9 @@ export const GetAdminStatsResponse = zod.object({
   "pendingSubscriptions": zod.number(),
   "activeSubscriptions": zod.number(),
   "totalXpAwarded": zod.number(),
-  "recentSignups": zod.number()
+  "recentSignups": zod.number(),
+  "todaySignups": zod.number().optional(),
+  "todayLogins": zod.number().optional()
 })
 
 

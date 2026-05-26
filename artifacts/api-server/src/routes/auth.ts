@@ -1,6 +1,6 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, userLoginsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, XP_TO_LEVEL } from "../lib/auth";
 
@@ -55,10 +55,41 @@ router.post("/auth/login", async (req, res) => {
     res.status(401).json({ error: "Invalid email or password" });
     return;
   }
+
+  // Track login: IP, location, timestamp
+  const ipAddress = (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "").split(",")[0].trim();
+  const now = new Date();
+  let location: string | null = null;
+  try {
+    const geoRes = await fetch(`https://ipapi.co/${ipAddress}/json/`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
+    if (geoRes && geoRes.ok) {
+      const geo = await geoRes.json() as { city?: string; country_name?: string };
+      if (geo.city && geo.country_name) {
+        location = `${geo.city}, ${geo.country_name}`;
+      }
+    }
+  } catch {
+    // Silently skip geolocation failure
+  }
+
+  await db.update(usersTable).set({
+    lastLoginAt: now,
+    lastLoginIp: ipAddress,
+    loginLocation: location,
+    updatedAt: now,
+  }).where(eq(usersTable.id, user.id));
+
+  await db.insert(userLoginsTable).values({
+    userId: user.id,
+    ipAddress,
+    location,
+    userAgent: req.headers["user-agent"] || null,
+  });
+
   req.session.userId = user.id;
   req.session.role = user.role;
   const { passwordHash: _ph, ...safeUser } = user;
-  res.json({ user: { ...safeUser, createdAt: safeUser.createdAt.toISOString() } });
+  res.json({ user: { ...safeUser, createdAt: safeUser.createdAt.toISOString(), lastLoginAt: now.toISOString(), lastLoginIp: ipAddress, loginLocation: location } });
 });
 
 router.post("/auth/logout", (req, res) => {

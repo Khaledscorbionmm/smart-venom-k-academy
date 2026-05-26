@@ -5,10 +5,12 @@ import {
   useGetAdminStats, useAdminGetUsers, useGetSubscriptions,
   useApproveSubscription, useRejectSubscription, useAdminUpdateUser,
   useSuspendSubscription, useReactivateSubscription,
+  useGetAdminUserLogins,
   getGetAdminStatsQueryKey, getAdminGetUsersQueryKey, getGetSubscriptionsQueryKey
 } from "@workspace/api-client-react";
 import { Redirect } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +20,7 @@ import { toast } from "sonner";
 import {
   Users, BookOpen, CreditCard, Award, Check, X,
   ShieldAlert, PauseCircle, PlayCircle, Search,
-  TrendingUp, Activity, Clock
+  TrendingUp, Activity, Clock, Eye, MapPin, Globe, Monitor
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -31,6 +33,22 @@ const statusConfig: Record<string, { label: string; labelEn: string; color: stri
   rejected:  { label: "مرفوض", labelEn: "Rejected",  color: "bg-red-500/10 text-red-400 border-red-500/30" },
 };
 
+function formatDate(iso: string | null, lang: string) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleString(lang === "ar" ? "ar-EG" : "en-GB", {
+    year: "numeric", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function formatDateOnly(iso: string | null, lang: string) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-GB", {
+    year: "numeric", month: "short", day: "numeric",
+  });
+}
+
 export default function Admin() {
   const { t, lang } = useLanguage();
   const { user } = useAuth();
@@ -38,11 +56,18 @@ export default function Admin() {
   const [subFilter, setSubFilter] = useState<SubStatus>("all");
   const [subSearch, setSubSearch] = useState("");
   const [userSearch, setUserSearch] = useState("");
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [showUserDialog, setShowUserDialog] = useState(false);
 
   const isAdmin = user?.role === "admin";
   const { data: stats } = useGetAdminStats({ query: { queryKey: getGetAdminStatsQueryKey(), enabled: isAdmin } as any });
   const { data: users } = useAdminGetUsers({ query: { queryKey: getAdminGetUsersQueryKey(), enabled: isAdmin } as any });
   const { data: subscriptions } = useGetSubscriptions({ query: { queryKey: getGetSubscriptionsQueryKey(), enabled: isAdmin } as any });
+
+  const { data: selectedLogins, isLoading: loginsLoading } = useGetAdminUserLogins(
+    selectedUser?.id || 0,
+    { query: { enabled: !!selectedUser?.id && showUserDialog } as any }
+  );
 
   const approveSub = useApproveSubscription();
   const rejectSub = useRejectSubscription();
@@ -52,7 +77,6 @@ export default function Admin() {
 
   if (user?.role !== "admin") return <Redirect to="/dashboard" />;
 
-  // Show skeleton while admin data loads
   const isAdminDataLoading = !stats || !users || !subscriptions;
   if (isAdminDataLoading) {
     return (
@@ -108,6 +132,11 @@ export default function Admin() {
     });
   };
 
+  const handleViewUser = (u: any) => {
+    setSelectedUser(u);
+    setShowUserDialog(true);
+  };
+
   const allSubs = subscriptions || [];
   const pendingCount = allSubs.filter(s => s.status === "pending").length;
   const activeCount  = allSubs.filter(s => s.status === "active").length;
@@ -139,12 +168,12 @@ export default function Admin() {
 
   const statCards = [
     { icon: Users,     value: stats?.totalUsers || 0,           label: t("إجمالي المتدربين", "Total Trainees"),      color: "text-blue-400",   bg: "bg-blue-500/10" },
-    { icon: Activity,  value: activeCount,                       label: t("اشتراكات نشطة", "Active Subscriptions"),   color: "text-green-400",  bg: "bg-green-500/10" },
+    { icon: Activity,  value: stats?.todaySignups || 0,          label: t("سجل اليوم", "Today's Signups"),         color: "text-green-400",  bg: "bg-green-500/10" },
     { icon: Clock,     value: pendingCount,                      label: t("طلبات انتظار", "Pending Requests"),        color: "text-yellow-400", bg: "bg-yellow-500/10" },
-    { icon: PauseCircle, value: suspendedCount,                  label: t("اشتراكات موقوفة", "Suspended"),            color: "text-orange-400", bg: "bg-orange-500/10" },
+    { icon: Monitor,   value: stats?.todayLogins || 0,           label: t("دخول اليوم", "Today's Logins"),          color: "text-cyan-400",  bg: "bg-cyan-500/10" },
     { icon: BookOpen,  value: stats?.totalCourses || 0,          label: t("إجمالي المسارات", "Total Courses"),        color: "text-purple-400", bg: "bg-purple-500/10" },
     { icon: TrendingUp, value: stats?.totalXpAwarded || 0,       label: t("مجموع الخبرة XP", "Total XP Awarded"),    color: "text-pink-400",   bg: "bg-pink-500/10" },
-    { icon: CreditCard, value: stats?.totalSubscriptions || 0,   label: t("إجمالي الاشتراكات", "Total Subscriptions"), color: "text-cyan-400",  bg: "bg-cyan-500/10" },
+    { icon: CreditCard, value: activeCount,                      label: t("اشتراكات نشطة", "Active Subs"),        color: "text-cyan-400",  bg: "bg-cyan-500/10" },
     { icon: Award,     value: stats?.recentSignups || 0,         label: t("انضم مؤخراً", "Recent Signups"),          color: "text-indigo-400", bg: "bg-indigo-500/10" },
   ];
 
@@ -181,6 +210,80 @@ export default function Admin() {
           </Card>
         ))}
       </div>
+
+      {/* User Detail Dialog */}
+      <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5 text-primary" />
+              {selectedUser?.username} — {t("سجل النشاط", "Activity Log")}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <div className="text-muted-foreground text-xs">{t("تاريخ التسجيل", "Signup Date")}</div>
+                  <div className="font-medium">{formatDate(selectedUser.createdAt, lang)}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <div className="text-muted-foreground text-xs">{t("آخر دخول", "Last Login")}</div>
+                  <div className="font-medium">{formatDate(selectedUser.lastLoginAt, lang)}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <div className="text-muted-foreground text-xs">{t("عدد مرات الدخول", "Login Count")}</div>
+                  <div className="font-medium">{((selectedUser as any).loginCount || 0).toLocaleString()}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <div className="text-muted-foreground text-xs">{t("آخر IP", "Last IP")}</div>
+                  <div className="font-medium">{selectedUser.lastLoginIp || "—"}</div>
+                </div>
+              </div>
+              {selectedUser.loginLocation && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <MapPin className="w-4 h-4 text-primary" />
+                  <span>{selectedUser.loginLocation}</span>
+                </div>
+              )}
+
+              <div className="border-t border-border pt-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-primary" />
+                  {t("سجل تسجيل الدخول", "Login History")}
+                </h3>
+                {loginsLoading ? (
+                  <div className="space-y-2">
+                    {[1,2,3].map(i => <div key={i} className="h-10 bg-muted animate-pulse rounded" />)}
+                  </div>
+                ) : selectedLogins && selectedLogins.length > 0 ? (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {selectedLogins.map((login: any) => (
+                      <div key={login.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 text-sm">
+                        <Monitor className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium">{formatDate(login.createdAt, lang)}</div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                            {login.ipAddress && <span>IP: {login.ipAddress}</span>}
+                            {login.location && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {login.location}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-sm text-center py-4">{t("لا يوجد سجل دخول", "No login history")}</p>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Tabs defaultValue="subscriptions" className="w-full">
         <TabsList className="mb-6 h-auto gap-1 p-1">
@@ -269,11 +372,11 @@ export default function Admin() {
                               </span>
                             </TableCell>
                             <TableCell className="text-sm text-muted-foreground">
-                              {new Date(sub.createdAt).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-GB")}
+                              {formatDateOnly(sub.createdAt, lang)}
                             </TableCell>
                             <TableCell className="text-sm text-muted-foreground">
                               {sub.approvedAt
-                                ? new Date(sub.approvedAt).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-GB")
+                                ? formatDateOnly(sub.approvedAt, lang)
                                 : <span className="text-muted-foreground/50">—</span>}
                             </TableCell>
                             <TableCell>
@@ -358,10 +461,11 @@ export default function Admin() {
                     <TableRow className="border-border/50">
                       <TableHead className="font-semibold">{t("المتدرب", "Trainee")}</TableHead>
                       <TableHead className="font-semibold">{t("الصلاحية", "Role")}</TableHead>
-                      <TableHead className="font-semibold">{t("الخبرة", "XP")}</TableHead>
-                      <TableHead className="font-semibold">{t("المستوى", "Level")}</TableHead>
-                      <TableHead className="font-semibold">{t("السلسلة", "Streak")}</TableHead>
-                      <TableHead className="font-semibold text-center">{t("الإجراء", "Action")}</TableHead>
+                      <TableHead className="font-semibold">{t("تاريخ التسجيل", "Signup")}</TableHead>
+                      <TableHead className="font-semibold">{t("آخر دخول", "Last Login")}</TableHead>
+                      <TableHead className="font-semibold">{t("الموقع", "Location")}</TableHead>
+                      <TableHead className="font-semibold">{t("دخولات", "Logins")}</TableHead>
+                      <TableHead className="font-semibold text-center">{t("الإجراءات", "Actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -379,23 +483,48 @@ export default function Admin() {
                             {u.role === "admin" ? t("مدير", "Admin") : t("متدرب", "Student")}
                           </Badge>
                         </TableCell>
-                        <TableCell className="font-medium text-yellow-400">{u.xp.toLocaleString()}</TableCell>
-                        <TableCell>{u.level}</TableCell>
-                        <TableCell>{u.streak} 🔥</TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {formatDateOnly(u.createdAt, lang)}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {u.lastLoginAt ? formatDate(u.lastLoginAt, lang) : <span className="text-muted-foreground/50">—</span>}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {u.loginLocation ? (
+                            <span className="flex items-center gap-1 text-muted-foreground">
+                              <MapPin className="w-3 h-3 text-primary" />
+                              {u.loginLocation}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/50">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">{(u as any).loginCount || 0}</TableCell>
                         <TableCell className="text-center">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={u.id === user.id}
-                            className={u.role === "admin"
-                              ? "border-red-500/20 text-red-400 hover:bg-red-500/10"
-                              : "border-primary/20 text-primary hover:bg-primary/10"}
-                            onClick={() => handleToggleRole(u.id, u.role)}
-                          >
-                            {u.role === "admin"
-                              ? t("تخفيض لمتدرب", "Demote to Student")
-                              : t("ترقية لمدير", "Promote to Admin")}
-                          </Button>
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-3 border-primary/20 text-primary hover:bg-primary/10"
+                              onClick={() => handleViewUser(u)}
+                            >
+                              <Eye className="w-3.5 h-3.5 me-1" />
+                              {t("عرض", "View")}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={u.id === user.id}
+                              className={u.role === "admin"
+                                ? "border-red-500/20 text-red-400 hover:bg-red-500/10"
+                                : "border-primary/20 text-primary hover:bg-primary/10"}
+                              onClick={() => handleToggleRole(u.id, u.role)}
+                            >
+                              {u.role === "admin"
+                                ? t("تخفيض", "Demote")
+                                : t("ترقية", "Promote")}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

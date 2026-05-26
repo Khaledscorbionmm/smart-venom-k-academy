@@ -66,6 +66,12 @@ export interface User {
   languagePreference: UserLanguagePreference;
   /** @nullable */
   avatarUrl?: string | null;
+  /** @nullable */
+  lastLoginAt?: string | null;
+  /** @nullable */
+  lastLoginIp?: string | null;
+  /** @nullable */
+  loginLocation?: string | null;
   createdAt: string;
 }
 
@@ -396,6 +402,18 @@ export interface AdminUserUpdate {
   level?: number;
 }
 
+export interface UserLogin {
+  id: number;
+  userId: number;
+  /** @nullable */
+  ipAddress?: string | null;
+  /** @nullable */
+  location?: string | null;
+  /** @nullable */
+  userAgent?: string | null;
+  createdAt: string;
+}
+
 export interface AdminStats {
   totalUsers: number;
   totalCourses: number;
@@ -405,6 +423,8 @@ export interface AdminStats {
   activeSubscriptions: number;
   totalXpAwarded: number;
   recentSignups: number;
+  todaySignups?: number;
+  todayLogins?: number;
 }
 
 export type GetCoursesParams = {

@@ -47,6 +47,7 @@ import type {
   SuccessResponse,
   User,
   UserAchievement,
+  UserLogin,
   UserProgress
 } from './api.schemas';
 
@@ -1996,6 +1997,83 @@ export const useAdminUpdateUser = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getAdminUpdateUserMutationOptions(options));
     }
+
+export const getGetAdminUserLoginsUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/users/${id}/logins`
+}
+
+/**
+ * @summary Get user login history
+ */
+export const getAdminUserLogins = async (id: number, options?: RequestInit): Promise<UserLogin[]> => {
+
+  return customFetch<UserLogin[]>(getGetAdminUserLoginsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminUserLoginsQueryKey = (id: number,) => {
+    return [
+    `/api/admin/users/${id}/logins`
+    ] as const;
+    }
+
+
+export const getGetAdminUserLoginsQueryOptions = <TData = Awaited<ReturnType<typeof getAdminUserLogins>>, TError = ErrorType<ErrorResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminUserLogins>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminUserLoginsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminUserLogins>>> = ({ signal }) => getAdminUserLogins(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminUserLogins>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminUserLoginsQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminUserLogins>>>
+export type GetAdminUserLoginsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get user login history
+ */
+
+export function useGetAdminUserLogins<TData = Awaited<ReturnType<typeof getAdminUserLogins>>, TError = ErrorType<ErrorResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminUserLogins>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminUserLoginsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetAdminStatsUrl = () => {
 

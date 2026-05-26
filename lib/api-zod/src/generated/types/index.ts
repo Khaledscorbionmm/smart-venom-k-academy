@@ -48,6 +48,7 @@ export * from './successResponse';
 export * from './user';
 export * from './userAchievement';
 export * from './userLanguagePreference';
+export * from './userLogin';
 export * from './userProgress';
 export * from './userProgressCourseProgressItem';
 export * from './userRole';

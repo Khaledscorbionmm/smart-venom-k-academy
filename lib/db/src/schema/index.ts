@@ -7,3 +7,4 @@ export * from "./userProgress";
 export * from "./subscriptions";
 export * from "./achievements";
 export * from "./activityLog";
+export * from "./userLogins";

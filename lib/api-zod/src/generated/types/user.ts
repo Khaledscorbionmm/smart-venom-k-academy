@@ -19,5 +19,11 @@ export interface User {
   languagePreference: UserLanguagePreference;
   /** @nullable */
   avatarUrl?: string | null;
+  /** @nullable */
+  lastLoginAt?: string | null;
+  /** @nullable */
+  lastLoginIp?: string | null;
+  /** @nullable */
+  loginLocation?: string | null;
   createdAt: string;
 }

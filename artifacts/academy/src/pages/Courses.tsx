@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { BookOpen, Code, Globe } from "lucide-react";
 import { SiPython, SiJavascript, SiTypescript, SiCplusplus, SiRust, SiGo } from "react-icons/si";
 import { CoursesSkeleton } from "@/components/LoadingSkeleton";
+import { offlineCache } from "@/lib/offlineCache";
+import { useEffect } from "react";
 
 // Map course slugs to react-icons components
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -22,7 +24,15 @@ export default function Courses() {
   const { t } = useLanguage();
   const { data: courses, isLoading } = useGetCourses();
 
-  if (isLoading) {
+  // Cache courses when loaded
+  useEffect(() => {
+    if (courses) offlineCache.saveCourses(courses);
+  }, [courses]);
+
+  const cachedCourses = offlineCache.loadCourses();
+  const displayCourses = courses || cachedCourses;
+
+  if (isLoading && !displayCourses) {
     return <CoursesSkeleton />;
   }
 
@@ -35,8 +45,13 @@ export default function Courses() {
         </p>
       </div>
 
+      {!navigator.onLine && cachedCourses && (
+        <div className="text-center text-xs text-yellow-400 bg-yellow-400/10 border border-yellow-400/20 rounded-lg py-2 px-4">
+          {t('أنت في وضع عدم الاتصال. البيانات المعروضة من ذاكرة التخزين المحلية.', 'You are offline. Data shown from local cache.')}
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        {courses?.map((course) => {
+        {displayCourses?.map((course) => {
           const Icon = ICONS[course.slug] || (course.category === 'programming' ? Code : Globe);
           
           return (

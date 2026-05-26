@@ -14,6 +14,8 @@ import { getRank, xpForLevel, xpProgressPercent, DAILY_QUESTS } from "@/lib/fant
 import { Flame, BookOpen, Trophy, Zap, Target, Scroll, Sparkles, Crown } from "lucide-react";
 import { DashboardSkeleton } from "@/components/LoadingSkeleton";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { offlineCache } from "@/lib/offlineCache";
+import { useEffect } from "react";
 
 export default function Dashboard() {
   const { t } = useLanguage();
@@ -23,13 +25,23 @@ export default function Dashboard() {
   const [confetti, setConfetti] = useState(false);
   const [showLevelUp, setShowLevelUp] = useState(false);
 
-  if (isLoading || !dashboard) {
+  // Cache dashboard when loaded
+  useEffect(() => {
+    if (dashboard) offlineCache.saveDashboard(dashboard);
+  }, [dashboard]);
+
+  const cachedDashboard = offlineCache.loadDashboard();
+  const displayDashboard = dashboard || cachedDashboard;
+
+  if (isLoading && !displayDashboard) {
     return <DashboardSkeleton />;
   }
 
+  const data = displayDashboard;
+
   const rank = getRank(user?.level || 1);
   const nextLevelProgress = xpProgressPercent(user?.xp || 0, user?.level || 1);
-  const questsProgress = dashboard?.languageStats?.reduce((sum, s) => sum + s.completedLessons, 0) || 0;
+  const questsProgress = data?.languageStats?.reduce((sum: number, s: any) => sum + (s.completedLessons || 0), 0) || 0;
 
   return (
     <div className="container mx-auto p-4 md:p-8 space-y-8">
@@ -125,7 +137,7 @@ export default function Dashboard() {
         {[
           { labelAr: 'الخبرة الكلية', labelEn: 'Total Mana', value: user?.xp || 0, icon: Zap, color: 'text-accent', border: 'border-accent/20' },
           { labelAr: 'نار الاستمرار', labelEn: 'Fire Streak', value: user?.streak || 0, icon: Flame, color: 'text-orange-500', border: 'border-orange-500/20' },
-          { labelAr: 'دروس مكتملة', labelEn: 'Completed', value: dashboard.completedLessons, icon: BookOpen, color: 'text-blue-500', border: 'border-blue-500/20' },
+          { labelAr: 'دروس مكتملة', labelEn: 'Completed', value: data?.completedLessons, icon: BookOpen, color: 'text-blue-500', border: 'border-blue-500/20' },
           { labelAr: 'الرتبة الحالية', labelEn: 'Rank', value: user?.level || 1, icon: Target, color: 'text-purple-500', border: 'border-purple-500/20', isRank: true },
         ].map((stat, i) => (
           <motion.div
@@ -162,9 +174,9 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="h-[250px] w-full">
-                {dashboard.weeklyXp && dashboard.weeklyXp.length > 0 ? (
+                {data?.weeklyXp && data.weeklyXp.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={dashboard.weeklyXp}>
+                    <BarChart data={data.weeklyXp}>
                       <XAxis dataKey="day" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                       <Tooltip
@@ -186,7 +198,7 @@ export default function Dashboard() {
 
           <h2 className="text-2xl font-bold">{t('تقدمك في المسارات', 'Your Track Progress')}</h2>
           <div className="grid sm:grid-cols-2 gap-4">
-            {dashboard.languageStats?.map((stat, i) => (
+            {data?.languageStats?.map((stat: any, i: number) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, x: -20 }}
@@ -211,7 +223,7 @@ export default function Dashboard() {
                 </Card>
               </motion.div>
             ))}
-            {(!dashboard.languageStats || dashboard.languageStats.length === 0) && (
+            {(!data?.languageStats || data.languageStats.length === 0) && (
               <div className="col-span-2 text-center p-8 border rounded-xl bg-card/30 text-muted-foreground">
                 {t('لم تبدأ في أي مسار بعد. استكشف الدورات الآن!', 'You haven\'t started any tracks yet. Explore courses now!')}
               </div>
@@ -230,7 +242,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {dashboard.recentActivity?.map((activity, i) => (
+                {data?.recentActivity?.map((activity: any, i: number) => (
                   <motion.div
                     key={i}
                     className="flex items-start gap-3 border-b border-border/50 pb-3 last:border-0"
@@ -251,7 +263,7 @@ export default function Dashboard() {
                     </div>
                   </motion.div>
                 ))}
-                {(!dashboard.recentActivity || dashboard.recentActivity.length === 0) && (
+                {(!data?.recentActivity || data.recentActivity.length === 0) && (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     {t('لا توجد نشاطات حديثة', 'No recent activity')}
                   </p>

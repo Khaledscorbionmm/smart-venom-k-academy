@@ -3,12 +3,22 @@ import { useGetLeaderboard } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Trophy, Flame, Medal } from "lucide-react";
+import { offlineCache } from "@/lib/offlineCache";
+import { useEffect } from "react";
 
 export default function Leaderboard() {
   const { t } = useLanguage();
   const { data: leaderboard, isLoading } = useGetLeaderboard();
 
-  if (isLoading) {
+  // Cache leaderboard when loaded
+  useEffect(() => {
+    if (leaderboard) offlineCache.saveLeaderboard(leaderboard);
+  }, [leaderboard]);
+
+  const cachedLeaderboard = offlineCache.loadLeaderboard();
+  const displayLeaderboard = leaderboard || cachedLeaderboard;
+
+  if (isLoading && !displayLeaderboard) {
     return (
       <div className="container mx-auto p-4 md:p-8 space-y-8 max-w-4xl">
         <div className="h-10 w-48 mx-auto bg-muted animate-pulse rounded" />
@@ -41,7 +51,7 @@ export default function Leaderboard() {
       <Card className="border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden">
         <CardContent className="p-0">
           <div className="divide-y divide-border/50">
-            {leaderboard?.map((user) => (
+            {displayLeaderboard?.map((user: any) => (
               <div key={user.userId} className={`flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors ${user.rank <= 3 ? 'bg-muted/20' : ''}`}>
                 <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold border-2 ${getRankStyle(user.rank)}`}>
                   {user.rank <= 3 ? <Medal className="w-5 h-5" /> : user.rank}

@@ -20,6 +20,7 @@ import { ConfettiEffect } from "@/components/ConfettiEffect";
 import { LevelUpModal } from "@/components/LevelUpModal";
 import { FantasyRankBadge } from "@/components/FantasyRankBadge";
 import { getRank } from "@/lib/fantasyRanks";
+import { offlineCache, setupOfflineListener } from "@/lib/offlineCache";
 
 export default function LessonViewer() {
   const { t, lang } = useLanguage();
@@ -45,12 +46,42 @@ export default function LessonViewer() {
   const [quizResults, setQuizResults] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'content' | 'quiz'>('content');
 
-  // Initialize code when lesson loads
+  // Offline listener + cache load
   useEffect(() => {
-    if (lesson && lesson.codeExample && code === "") {
+    const cleanup = setupOfflineListener((msg, type) => {
+      if (type === 'warning') toast.warning(msg);
+      else toast.info(msg);
+    });
+    // Load cached quiz answers
+    const cachedQuiz = offlineCache.loadQuizAnswers(lessonId);
+    if (cachedQuiz) setSelectedAnswers(cachedQuiz);
+    return cleanup;
+  }, [lessonId]);
+
+  // Initialize code when lesson loads (prefer cached draft)
+  useEffect(() => {
+    if (!lesson) return;
+    const cachedCode = offlineCache.loadCodeDraft(lessonId);
+    if (cachedCode !== null) {
+      setCode(cachedCode);
+    } else if (lesson.codeExample && code === "") {
       setCode(lesson.codeExample);
     }
-  }, [lesson?.id]); // only on lesson change, not on code change
+  }, [lesson?.id]);
+
+  // Auto-save code draft every 3 seconds
+  useEffect(() => {
+    if (!code || !lessonId) return;
+    const timer = setTimeout(() => offlineCache.saveCodeDraft(lessonId, code), 3000);
+    return () => clearTimeout(timer);
+  }, [code, lessonId]);
+
+  // Save quiz answers whenever they change
+  useEffect(() => {
+    if (Object.keys(selectedAnswers).length > 0) {
+      offlineCache.saveQuizAnswers(lessonId, selectedAnswers);
+    }
+  }, [selectedAnswers, lessonId]);
 
   useEffect(() => {
     // Delay narration to avoid blocking initial render and reduce audio conflicts

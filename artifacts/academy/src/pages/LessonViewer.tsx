@@ -227,8 +227,13 @@ export default function LessonViewer() {
               {lesson.xpReward} Mana
             </span>
             {lesson.language && (
-              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
+              <span className={`px-2 py-0.5 rounded-full font-bold text-xs ${
+                ['python','javascript','typescript','java','cpp','rust','go'].includes(lesson.language.toLowerCase())
+                  ? 'bg-green-500/15 text-green-400 border border-green-500/30'
+                  : 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+              }`}>
                 {lesson.language.toUpperCase()}
+                {['python','javascript','typescript','java','cpp','rust','go'].includes(lesson.language.toLowerCase()) ? ' ⚡' : ' 🌐'}
               </span>
             )}
           </div>

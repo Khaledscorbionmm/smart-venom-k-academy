@@ -7,8 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { BookOpen, Code, Globe } from "lucide-react";
 import { SiPython, SiJavascript, SiTypescript, SiCplusplus, SiRust, SiGo } from "react-icons/si";
 
-const ICONS: Record<string, any> = {
-  SiPython, SiJavascript, SiTypescript, SiCplusplus, SiRust, SiGo
+// Map course slugs to react-icons components
+const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  python: SiPython,
+  javascript: SiJavascript,
+  typescript: SiTypescript,
+  cpp: SiCplusplus,
+  rust: SiRust,
+  go: SiGo,
 };
 
 export default function Courses() {
@@ -39,7 +45,7 @@ export default function Courses() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {courses?.map((course) => {
-          const Icon = ICONS[course.icon] || BookOpen;
+          const Icon = ICONS[course.slug] || (course.category === 'programming' ? Code : Globe);
           
           return (
             <Card key={course.id} className="group overflow-hidden border-border/50 hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/5">

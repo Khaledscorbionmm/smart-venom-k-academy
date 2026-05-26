@@ -12,7 +12,13 @@ export interface ExecutionResult {
 
 const TIMEOUT_MS = 10000;
 
-const DOCKER_IMAGES: Record<string, string> = {
+// Programming languages supported by the Docker execution engine
+export const EXECUTABLE_LANGUAGES = [
+  "python", "javascript", "typescript", "java", "cpp", "rust", "go",
+] as const;
+export type ExecutableLanguage = (typeof EXECUTABLE_LANGUAGES)[number];
+
+const DOCKER_IMAGES: Record<ExecutableLanguage, string> = {
   python: "python:3.11-slim",
   javascript: "node:20-alpine",
   typescript: "denoland/deno:alpine",
@@ -229,8 +235,24 @@ async function runDockerTypeScript(code: string, workDir: string): Promise<Execu
   };
 }
 
-export async function executeCode(language: string, code: string): Promise<ExecutionResult> {
+export function isExecutableLanguage(language: string): language is ExecutableLanguage {
   const normalized = language.toLowerCase().trim();
+  return EXECUTABLE_LANGUAGES.includes(normalized as ExecutableLanguage);
+}
+
+export async function executeCode(language: string, code: string): Promise<ExecutionResult> {
+  const normalized = language.toLowerCase().trim() as ExecutableLanguage;
+
+  // Non-code languages (english, german, french) are language-learning lessons
+  // not programming — they don't need code execution. Return a graceful message.
+  if (!isExecutableLanguage(language)) {
+    return {
+      success: true,
+      output: t("lang", `This is a language learning lesson (${language}). Code execution is available for programming languages only: Python, JavaScript, TypeScript, Java, C++, Rust, and Go.`),
+      error: null,
+      executionTime: 0,
+    };
+  }
 
   if (normalized === "javascript") {
     return runInProcessJS(code);
@@ -262,4 +284,9 @@ export async function executeCode(language: string, code: string): Promise<Execu
   } finally {
     try { rmSync(workDir, { recursive: true, force: true }); } catch {}
   }
+}
+
+// Simple bilingual helper for API messages
+function t(_langHint: string, en: string): string {
+  return en;
 }

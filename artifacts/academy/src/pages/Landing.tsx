@@ -7,7 +7,14 @@ import { BookOpen, Code, Globe, Sparkles, Trophy, Zap, Users, Star, Wand2 } from
 import { motion } from "framer-motion";
 import { SiPython, SiJavascript, SiTypescript, SiCplusplus, SiRust, SiGo } from "react-icons/si";
 
-const ICONS: Record<string, any> = { SiPython, SiJavascript, SiTypescript, SiCplusplus, SiRust, SiGo };
+const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  python: SiPython,
+  javascript: SiJavascript,
+  typescript: SiTypescript,
+  cpp: SiCplusplus,
+  rust: SiRust,
+  go: SiGo,
+};
 
 export default function Landing() {
   const { t } = useLanguage();
@@ -82,7 +89,7 @@ export default function Landing() {
               </Link>
               <Link href="/courses" className="w-full sm:w-auto">
                 <Button size="lg" variant="outline" className="h-12 sm:h-14 px-6 sm:px-8 text-base sm:text-lg w-full border-primary/30 hover:bg-primary/10">
-                  {t("استكشف الحوالية", "Explore Worlds")}
+                  {t("استكشف المسارات", "Explore Worlds")}
                 </Button>
               </Link>
             </div>
@@ -152,7 +159,7 @@ export default function Landing() {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-8">
               {courses.slice(0, 10).map((c) => {
-                const Icon = ICONS[c.icon] || BookOpen;
+                const Icon = ICONS[c.slug] || (c.category === 'programming' ? Code : Globe);
                 return (
                   <Link key={c.id} href={`/courses/${c.slug}`}>
                     <div

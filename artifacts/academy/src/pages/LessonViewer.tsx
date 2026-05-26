@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { ArrowRight, ArrowLeft, Play, CheckCircle2, Code2, BrainCircuit, BookOpen, Sparkles, Target, Baby, GraduationCap, Zap, Flame, Trophy, Loader2, Terminal, AlertTriangle, Clock } from "lucide-react";
+import { LessonSkeleton } from "@/components/LoadingSkeleton";
 import Editor from "@monaco-editor/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -45,9 +46,11 @@ export default function LessonViewer() {
   const [activeTab, setActiveTab] = useState<'content' | 'quiz'>('content');
 
   // Initialize code when lesson loads
-  if (lesson && !code && lesson.codeExample) {
-    setCode(lesson.codeExample);
-  }
+  useEffect(() => {
+    if (lesson && lesson.codeExample && code === "") {
+      setCode(lesson.codeExample);
+    }
+  }, [lesson?.id]); // only on lesson change, not on code change
 
   useEffect(() => {
     // Delay narration to avoid blocking initial render and reduce audio conflicts
@@ -56,7 +59,7 @@ export default function LessonViewer() {
   }, [playNarration]);
 
   if (isLoading || !lesson) {
-    return <div className="p-8 text-center">{t('جاري التحميل...', 'Loading...')}</div>;
+    return <LessonSkeleton />;
   }
 
   const handleRunCode = () => {

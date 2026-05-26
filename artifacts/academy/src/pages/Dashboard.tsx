@@ -12,6 +12,7 @@ import { LevelUpModal } from "@/components/LevelUpModal";
 import { useSound } from "@/contexts/SoundContext";
 import { getRank, xpForLevel, xpProgressPercent, DAILY_QUESTS } from "@/lib/fantasyRanks";
 import { Flame, BookOpen, Trophy, Zap, Target, Scroll, Sparkles, Crown } from "lucide-react";
+import { DashboardSkeleton } from "@/components/LoadingSkeleton";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export default function Dashboard() {
@@ -23,16 +24,7 @@ export default function Dashboard() {
   const [showLevelUp, setShowLevelUp] = useState(false);
 
   if (isLoading || !dashboard) {
-    return (
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
-        <div className="grid md:grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => (
-            <div key={i} className="h-32 bg-card rounded-xl border border-border animate-pulse" />
-          ))}
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   const rank = getRank(user?.level || 1);

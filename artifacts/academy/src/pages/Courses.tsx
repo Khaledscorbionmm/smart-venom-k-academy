@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Code, Globe } from "lucide-react";
 import { SiPython, SiJavascript, SiTypescript, SiCplusplus, SiRust, SiGo } from "react-icons/si";
+import { CoursesSkeleton } from "@/components/LoadingSkeleton";
 
 // Map course slugs to react-icons components
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -22,16 +23,7 @@ export default function Courses() {
   const { data: courses, isLoading } = useGetCourses();
 
   if (isLoading) {
-    return (
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-        <div className="grid md:grid-cols-3 gap-6">
-          {[1,2,3,4,5,6].map(i => (
-            <div key={i} className="h-64 bg-card rounded-xl border border-border animate-pulse" />
-          ))}
-        </div>
-      </div>
-    );
+    return <CoursesSkeleton />;
   }
 
   return (

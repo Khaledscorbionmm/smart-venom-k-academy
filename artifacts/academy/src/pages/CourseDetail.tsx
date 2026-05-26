@@ -5,9 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { BookOpen, CheckCircle2, Lock, PlayCircle, Code, Star } from "lucide-react";
+import { BookOpen, CheckCircle2, Lock, PlayCircle, Code, Star, Globe } from "lucide-react";
+import { SiPython, SiJavascript, SiTypescript, SiCplusplus, SiRust, SiGo } from "react-icons/si";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { LessonSkeleton } from "@/components/LoadingSkeleton";
+
+const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  python: SiPython,
+  javascript: SiJavascript,
+  typescript: SiTypescript,
+  cpp: SiCplusplus,
+  rust: SiRust,
+  go: SiGo,
+};
 
 export default function CourseDetail() {
   const { t } = useLanguage();
@@ -16,11 +27,15 @@ export default function CourseDetail() {
   const { data: course, isLoading } = useGetCourse(slug || "");
   const requestSub = useRequestSubscription();
 
-  if (isLoading || !course) {
+  if (isLoading) return <LessonSkeleton />;
+  if (!course) {
     return (
-      <div className="container mx-auto p-6 space-y-8">
-        <div className="h-64 bg-card rounded-2xl animate-pulse" />
-        <div className="h-96 bg-card rounded-2xl animate-pulse" />
+      <div className="container mx-auto p-8 text-center">
+        <h2 className="text-xl font-bold mb-2">{t('المسار غير موجود', 'Track Not Found')}</h2>
+        <p className="text-muted-foreground mb-4">{t('المسار الذي تبحث عنه غير متوفر حالياً.', 'The track you are looking for is not currently available.')}</p>
+        <Link href="/courses">
+          <Button variant="outline">{t('عودة للمسارات', 'Back to Tracks')}</Button>
+        </Link>
       </div>
     );
   }
@@ -49,9 +64,20 @@ export default function CourseDetail() {
       >
         <div className="container mx-auto px-4">
           <div className="max-w-3xl space-y-4 sm:space-y-6">
-            <Badge variant="outline" className="border-primary/50 text-primary bg-primary/10">
-              {course.category === 'programming' ? t('برمجة', 'Programming') : t('لغات', 'Languages')}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <div
+                className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: `${course.color}20`, color: course.color }}
+              >
+                {(() => {
+                  const IconComp = ICONS[course.slug] || (course.category === 'programming' ? Code : Globe);
+                  return <IconComp className="w-7 h-7 sm:w-9 sm:h-9" />;
+                })()}
+              </div>
+              <Badge variant="outline" className="border-primary/50 text-primary bg-primary/10">
+                {course.category === 'programming' ? t('برمجة', 'Programming') : t('لغات', 'Languages')}
+              </Badge>
+            </div>
             <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold leading-tight">{t(course.titleAr, course.titleEn)}</h1>
             <p className="text-sm sm:text-base md:text-xl text-muted-foreground">
               {t(course.descriptionAr || '', course.descriptionEn || '')}

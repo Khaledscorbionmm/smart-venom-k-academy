@@ -221,9 +221,11 @@ async function runDockerTypeScript(code: string, workDir: string): Promise<Execu
   writeFileSync(join(workDir, "main.ts"), code);
   const start = Date.now();
   // Deno supports TypeScript out of the box — zero install, zero config
+  // --allow-all is safe because the container is already network-isolated
+  // and memory/CPU-limited. Without it, console.log() gets silently blocked.
   const run = await execDocker(
     DOCKER_IMAGES.typescript,
-    ["deno", "run", "/workspace/main.ts"],
+    ["deno", "run", "--allow-all", "/workspace/main.ts"],
     workDir
   );
   const output = run.timedOut ? `Execution timed out after ${TIMEOUT_MS}ms\n${run.stdout}` : (run.stdout || run.stderr || "(no output)");

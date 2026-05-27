@@ -1,0 +1,12 @@
+node_modules
+.git
+.replit
+.local
+attached_assets
+artifacts/academy/dist
+artifacts/api-server/dist
+artifacts/mockup-sandbox/dist
+*.md
+!README.md
+.env
+.env.local

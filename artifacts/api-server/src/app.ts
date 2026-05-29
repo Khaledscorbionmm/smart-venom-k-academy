@@ -9,6 +9,7 @@ import connectPgSimple from "connect-pg-simple";
 import { pool } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import path from "path";
 
 const PgSession = connectPgSimple(session);
 
@@ -99,5 +100,18 @@ app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/register", authLimiter);
 
 app.use("/api", router);
+
+// Serve uploaded videos statically (range requests handled by videos router; this is fallback)
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+// Serve the React frontend in production
+if (process.env.NODE_ENV === "production") {
+  const frontendDist = path.join(process.cwd(), "artifacts/academy/dist/public");
+  app.use(express.static(frontendDist));
+  // SPA catch-all — return index.html for any non-API route
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+}
 
 export default app;

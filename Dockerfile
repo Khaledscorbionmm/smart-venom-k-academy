@@ -22,6 +22,9 @@ RUN pnpm --filter @workspace/academy run build
 # Build API server (esbuild bundle → artifacts/api-server/dist/index.mjs)
 RUN pnpm --filter @workspace/api-server run build
 
+# Build seed script (esbuild bundle → scripts/dist/seed-admin.mjs)
+RUN pnpm --filter @workspace/scripts run build:seed
+
 # ─── Production stage (Alpine — tiny image, no node_modules needed) ───────
 FROM node:22-alpine AS production
 WORKDIR /app
@@ -33,6 +36,9 @@ COPY --from=builder /app/artifacts/api-server/dist ./artifacts/api-server/dist
 
 # Copy frontend static assets (served by Express in production mode)
 COPY --from=builder /app/artifacts/academy/dist/public ./artifacts/academy/dist/public
+
+# Copy bundled seed script (run as pre-deploy: node /app/seed-admin.mjs)
+COPY --from=builder /app/scripts/dist/seed-admin.mjs ./seed-admin.mjs
 
 # Directory for video file uploads
 RUN mkdir -p uploads/videos

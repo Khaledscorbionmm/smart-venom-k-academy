@@ -8,23 +8,15 @@ WORKDIR /app
 
 RUN npm install -g pnpm@latest
 
-# Copy all workspace files
 COPY . .
 
 # Remove the local-dev-only preinstall guard so it does not block Docker builds
-RUN node -e "
-  const fs = require('fs');
-  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-  delete pkg.scripts.preinstall;
-  fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-"
+RUN node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));delete p.scripts.preinstall;fs.writeFileSync('package.json',JSON.stringify(p,null,2));"
 
 RUN pnpm install --frozen-lockfile
 
-# Build frontend (Vite → artifacts/academy/dist/public)
 RUN pnpm --filter @workspace/academy run build
 
-# Build API server (esbuild bundle → artifacts/api-server/dist/index.mjs)
 RUN pnpm --filter @workspace/api-server run build
 
 # ─── Production stage ─────────────────────────────────────────────────────
@@ -33,13 +25,9 @@ WORKDIR /app
 
 RUN apk add --no-cache curl
 
-# Copy fully-bundled API server output (no node_modules needed — esbuild bundles everything)
 COPY --from=builder /app/artifacts/api-server/dist ./artifacts/api-server/dist
-
-# Copy static frontend assets (served by the API's express static middleware)
 COPY --from=builder /app/artifacts/academy/dist/public ./artifacts/academy/dist/public
 
-# Create uploads directory for video files
 RUN mkdir -p uploads/videos
 
 ENV NODE_ENV=production

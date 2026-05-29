@@ -1,65 +1,49 @@
-# Smart Venom K Academy - Production Dockerfile
+# Smart Venom K Academy — Production Dockerfile
+# The API server is fully bundled by esbuild (bundle:true), so the production
+# stage needs no node_modules — only the dist output files.
 
-# ─── Stage 1: Build frontend ───────────────────────────────────────────────
-FROM node:22-alpine AS frontend-build
+# ─── Build stage ──────────────────────────────────────────────────────────
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 RUN npm install -g pnpm@latest
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY tsconfig*.json ./
-COPY lib ./lib
-COPY artifacts/academy ./artifacts/academy
-COPY artifacts/api-server ./artifacts/api-server
+# Copy all workspace files
+COPY . .
 
-# Remove preinstall guard (only needed for local dev, not Docker builds)
-RUN node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json','utf8')); delete p.scripts.preinstall; fs.writeFileSync('package.json', JSON.stringify(p,null,2));"
+# Remove the local-dev-only preinstall guard so it does not block Docker builds
+RUN node -e "
+  const fs = require('fs');
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  delete pkg.scripts.preinstall;
+  fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+"
 
 RUN pnpm install --frozen-lockfile
+
+# Build frontend (Vite → artifacts/academy/dist/public)
 RUN pnpm --filter @workspace/academy run build
 
-# ─── Stage 2: Build API server ─────────────────────────────────────────────
-FROM node:22-alpine AS api-build
-WORKDIR /app
-
-RUN npm install -g pnpm@latest
-
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY tsconfig*.json ./
-COPY lib ./lib
-COPY artifacts/api-server ./artifacts/api-server
-
-RUN node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json','utf8')); delete p.scripts.preinstall; fs.writeFileSync('package.json', JSON.stringify(p,null,2));"
-
-RUN pnpm install --frozen-lockfile
+# Build API server (esbuild bundle → artifacts/api-server/dist/index.mjs)
 RUN pnpm --filter @workspace/api-server run build
 
-# ─── Stage 3: Production image ─────────────────────────────────────────────
+# ─── Production stage ─────────────────────────────────────────────────────
 FROM node:22-alpine AS production
 WORKDIR /app
 
-RUN npm install -g pnpm@latest && apk add --no-cache curl
+RUN apk add --no-cache curl
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY lib/db/package.json ./lib/db/package.json
-COPY lib/api-client-react/package.json ./lib/api-client-react/package.json
-COPY lib/api-spec/package.json ./lib/api-spec/package.json
-COPY lib/api-zod/package.json ./lib/api-zod/package.json
-COPY artifacts/api-server/package.json ./artifacts/api-server/package.json
+# Copy fully-bundled API server output (no node_modules needed — esbuild bundles everything)
+COPY --from=builder /app/artifacts/api-server/dist ./artifacts/api-server/dist
 
-RUN node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json','utf8')); delete p.scripts.preinstall; fs.writeFileSync('package.json', JSON.stringify(p,null,2));"
+# Copy static frontend assets (served by the API's express static middleware)
+COPY --from=builder /app/artifacts/academy/dist/public ./artifacts/academy/dist/public
 
-RUN pnpm install --frozen-lockfile --prod
-
-COPY --from=frontend-build /app/artifacts/academy/dist/public ./artifacts/academy/dist/public
-COPY --from=api-build /app/artifacts/api-server/dist ./artifacts/api-server/dist
-COPY lib ./lib
-
+# Create uploads directory for video files
 RUN mkdir -p uploads/videos
 
 ENV NODE_ENV=production
 ENV PORT=8080
-ENV BASE_PATH=/
 
 EXPOSE 8080
 

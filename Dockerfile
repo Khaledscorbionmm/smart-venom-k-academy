@@ -12,8 +12,9 @@ COPY lib ./lib
 COPY artifacts/academy ./artifacts/academy
 COPY artifacts/api-server ./artifacts/api-server
 
-# Set user agent so preinstall script recognizes pnpm
-ENV npm_config_user_agent="pnpm/latest npm/? node/v22 linux x64"
+# Remove preinstall guard (only needed for local dev, not Docker builds)
+RUN node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json','utf8')); delete p.scripts.preinstall; fs.writeFileSync('package.json', JSON.stringify(p,null,2));"
+
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @workspace/academy run build
 
@@ -28,7 +29,8 @@ COPY tsconfig*.json ./
 COPY lib ./lib
 COPY artifacts/api-server ./artifacts/api-server
 
-ENV npm_config_user_agent="pnpm/latest npm/? node/v22 linux x64"
+RUN node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json','utf8')); delete p.scripts.preinstall; fs.writeFileSync('package.json', JSON.stringify(p,null,2));"
+
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @workspace/api-server run build
 
@@ -45,7 +47,8 @@ COPY lib/api-spec/package.json ./lib/api-spec/package.json
 COPY lib/api-zod/package.json ./lib/api-zod/package.json
 COPY artifacts/api-server/package.json ./artifacts/api-server/package.json
 
-ENV npm_config_user_agent="pnpm/latest npm/? node/v22 linux x64"
+RUN node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json','utf8')); delete p.scripts.preinstall; fs.writeFileSync('package.json', JSON.stringify(p,null,2));"
+
 RUN pnpm install --frozen-lockfile --prod
 
 COPY --from=frontend-build /app/artifacts/academy/dist/public ./artifacts/academy/dist/public

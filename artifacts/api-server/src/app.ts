@@ -108,8 +108,8 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 if (process.env.NODE_ENV === "production") {
   const frontendDist = path.join(process.cwd(), "artifacts/academy/dist/public");
   app.use(express.static(frontendDist));
-  // SPA catch-all — return index.html for any non-API route
-  app.get("*", (_req, res) => {
+  // SPA catch-all — return index.html for any non-API route (Express 5 requires named wildcard)
+  app.get("*splat", (_req, res) => {
     res.sendFile(path.join(frontendDist, "index.html"));
   });
 }

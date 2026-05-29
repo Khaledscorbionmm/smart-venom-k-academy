@@ -6,7 +6,7 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-RUN npm install -g pnpm@latest
+RUN npm install -g pnpm@10.26.1
 
 COPY . .
 

@@ -5,10 +5,19 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build:seed": "esbuild src/seed-admin.ts --bundle --platform=node --format=esm --outfile=dist/seed-admin.mjs --external:*.node"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "drizzle-orm": "catalog:",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "catalog:",
+    "@types/pg": "^8.20.0",
+    "esbuild": "0.27.3",
     "tsx": "catalog:"
   }
 }

@@ -9,8 +9,8 @@ import {
   getGetAdminStatsQueryKey, getAdminGetUsersQueryKey, getGetSubscriptionsQueryKey
 } from "@workspace/api-client-react";
 import { Redirect } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import {
   Users, BookOpen, CreditCard, Award, Check, X,
   ShieldAlert, PauseCircle, PlayCircle, Search,
-  TrendingUp, Activity, Clock, Eye, MapPin, Globe, Monitor
+  TrendingUp, Activity, Clock, Eye, MapPin, Globe, Monitor, Trash2
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -58,6 +58,8 @@ export default function Admin() {
   const [userSearch, setUserSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showUserDialog, setShowUserDialog] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isAdmin = user?.role === "admin";
   const { data: stats } = useGetAdminStats({ query: { queryKey: getGetAdminStatsQueryKey(), enabled: isAdmin } as any });
@@ -137,6 +139,26 @@ export default function Admin() {
     setShowUserDialog(true);
   };
 
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userToDelete.id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Delete failed");
+      }
+      toast.success(t(`تم حذف ${userToDelete.username} بنجاح`, `${userToDelete.username} deleted successfully`));
+      queryClient.invalidateQueries({ queryKey: getAdminGetUsersQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });
+    } catch (e: any) {
+      toast.error(e.message || t("حدث خطأ أثناء الحذف", "Delete failed"));
+    } finally {
+      setIsDeleting(false);
+      setUserToDelete(null);
+    }
+  };
+
   const allSubs = subscriptions || [];
   const pendingCount = allSubs.filter(s => s.status === "pending").length;
   const activeCount  = allSubs.filter(s => s.status === "active").length;
@@ -210,6 +232,37 @@ export default function Admin() {
           </Card>
         ))}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!userToDelete} onOpenChange={(open) => { if (!open) setUserToDelete(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-400">
+              <Trash2 className="w-5 h-5" />
+              {t("تأكيد الحذف", "Confirm Delete")}
+            </DialogTitle>
+            <DialogDescription>
+              {t(
+                `هل أنت متأكد من حذف العضو "${userToDelete?.username}"؟ هذا الإجراء لا يمكن التراجع عنه وسيحذف جميع بياناته.`,
+                `Are you sure you want to delete "${userToDelete?.username}"? This action cannot be undone and will remove all their data.`
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setUserToDelete(null)} disabled={isDeleting}>
+              {t("إلغاء", "Cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteUser}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? t("جاري الحذف...", "Deleting...") : t("حذف نهائي", "Delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* User Detail Dialog */}
       <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
@@ -501,11 +554,11 @@ export default function Admin() {
                         </TableCell>
                         <TableCell className="font-medium">{(u as any).loginCount || 0}</TableCell>
                         <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-2">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-8 px-3 border-primary/20 text-primary hover:bg-primary/10"
+                              className="h-8 px-2.5 border-primary/20 text-primary hover:bg-primary/10"
                               onClick={() => handleViewUser(u)}
                             >
                               <Eye className="w-3.5 h-3.5 me-1" />
@@ -516,13 +569,24 @@ export default function Admin() {
                               variant="outline"
                               disabled={u.id === user.id}
                               className={u.role === "admin"
-                                ? "border-red-500/20 text-red-400 hover:bg-red-500/10"
-                                : "border-primary/20 text-primary hover:bg-primary/10"}
+                                ? "h-8 px-2.5 border-orange-500/20 text-orange-400 hover:bg-orange-500/10"
+                                : "h-8 px-2.5 border-primary/20 text-primary hover:bg-primary/10"}
                               onClick={() => handleToggleRole(u.id, u.role)}
                             >
                               {u.role === "admin"
                                 ? t("تخفيض", "Demote")
                                 : t("ترقية", "Promote")}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={u.id === user.id}
+                              className="h-8 px-2.5 border-red-500/20 text-red-400 hover:bg-red-500/10 disabled:opacity-30"
+                              onClick={() => setUserToDelete(u)}
+                              title={u.id === user.id ? t("لا يمكن حذف حسابك", "Cannot delete your own account") : ""}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 me-1" />
+                              {t("حذف", "Delete")}
                             </Button>
                           </div>
                         </TableCell>

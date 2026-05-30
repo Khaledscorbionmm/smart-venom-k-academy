@@ -6,6 +6,13 @@ import { requireAuth, XP_TO_LEVEL } from "../lib/auth";
 
 const router = Router();
 
+// ─── Helper: regenerate session to prevent session fixation ────────────────
+function regenerateSession(req: any): Promise<void> {
+  return new Promise((resolve, reject) =>
+    req.session.regenerate((err: any) => (err ? reject(err) : resolve()))
+  );
+}
+
 // ─── Register ──────────────────────────────────────────────────────────────
 router.post("/auth/register", async (req, res) => {
   try {
@@ -38,6 +45,8 @@ router.post("/auth/register", async (req, res) => {
       languagePreference: languagePreference || "ar",
     }).returning();
 
+    // Regenerate session to prevent session fixation
+    await regenerateSession(req);
     req.session.userId = user.id;
     req.session.role = user.role;
     const { passwordHash: _ph, ...safeUser } = user;
@@ -104,6 +113,8 @@ router.post("/auth/login", async (req, res) => {
       userAgent: req.headers["user-agent"] || null,
     });
 
+    // Regenerate session to prevent session fixation
+    await regenerateSession(req);
     req.session.userId = user.id;
     req.session.role = user.role;
 

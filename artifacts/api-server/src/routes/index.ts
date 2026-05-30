@@ -8,6 +8,7 @@ import usersRouter from "./users";
 import subscriptionsRouter from "./subscriptions";
 import leaderboardRouter from "./leaderboard";
 import adminRouter from "./admin";
+import executeRouter from "./execute";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(usersRouter);
 router.use(subscriptionsRouter);
 router.use(leaderboardRouter);
 router.use(adminRouter);
+router.use(executeRouter);
 
 export default router;

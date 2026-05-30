@@ -184,3 +184,24 @@ CREATE TABLE IF NOT EXISTS user_logins (
   user_agent text,
   created_at timestamp NOT NULL DEFAULT now()
 );
+
+-- ───── Admin User (upsert) ────────────────────────────────────────────────────
+-- Password: SmartVenom@2026
+-- Hash generated with bcrypt cost 12
+
+INSERT INTO users (username, email, password_hash, role, xp, level, language_preference)
+VALUES (
+  'admin',
+  'admin@smartvenomk.com',
+  'b2$e7joUidxrDBcAa5JE9JEJuMUQTIX6OUz2W9XfxGqH5/ZMngrl3tpi',
+  'admin',
+  9999,
+  10,
+  'ar'
+)
+ON CONFLICT (email) DO UPDATE SET
+  role          = 'admin',
+  password_hash = 'b2$e7joUidxrDBcAa5JE9JEJuMUQTIX6OUz2W9XfxGqH5/ZMngrl3tpi',
+  updated_at    = NOW();
+
+SELECT id, email, role FROM users WHERE email = 'admin@smartvenomk.com';

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { db, lessonsTable, chaptersTable, coursesTable, quizQuestionsTable, userProgressTable, usersTable, subscriptionsTable, activityLogTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { XP_TO_LEVEL } from "../lib/auth";
 import { executeCode } from "../lib/codeExecutor";
@@ -27,7 +27,9 @@ router.get("/lessons/:id", async (req, res) => {
   if (!lesson) { res.status(404).json({ error: "Lesson not found" }); return; }
 
   const [chapter] = await db.select().from(chaptersTable).where(eq(chaptersTable.id, lesson.chapterId)).limit(1);
+  if (!chapter) { res.status(404).json({ error: "Chapter not found" }); return; }
   const [course] = await db.select().from(coursesTable).where(eq(coursesTable.id, chapter.courseId)).limit(1);
+  if (!course) { res.status(404).json({ error: "Course not found" }); return; }
 
   // Access check: free lessons are open to all; paid lessons require subscription (admins bypass)
   if (!lesson.isFree) {
@@ -93,6 +95,7 @@ router.post("/lessons/:id/complete", requireAuth, async (req, res) => {
     .where(and(eq(userProgressTable.userId, userId), eq(userProgressTable.lessonId, id))).limit(1);
   if (existing) {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (!user) { res.status(401).json({ error: "User not found" }); return; }
     res.json({ xpEarned: 0, totalXp: user.xp, leveledUp: false, newLevel: user.level, streakUpdated: false, newStreak: user.streak });
     return;
   }
@@ -103,6 +106,7 @@ router.post("/lessons/:id/complete", requireAuth, async (req, res) => {
   await db.insert(userProgressTable).values({ userId, lessonId: id, xpEarned: lesson.xpReward, passed: true });
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (!user) { res.status(401).json({ error: "User not found" }); return; }
   const newXp = user.xp + lesson.xpReward;
   const oldLevel = user.level;
   const newLevel = XP_TO_LEVEL(newXp);

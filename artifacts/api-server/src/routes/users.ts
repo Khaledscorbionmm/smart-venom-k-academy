@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, usersTable, userProgressTable, lessonsTable, chaptersTable, coursesTable, activityLogTable, achievementsTable, userAchievementsTable } from "@workspace/db";
-import { eq, desc, count, sql, and } from "drizzle-orm";
+import { db, usersTable, userProgressTable, lessonsTable, chaptersTable, coursesTable, activityLogTable, achievementsTable, userAchievementsTable, type ActivityLog, type Achievement } from "@workspace/db";
+import { eq, desc, count } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 
 const router = Router();
@@ -11,14 +11,18 @@ router.get("/users/me/dashboard", requireAuth, async (req, res) => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
-  const completedProgress = await db.select({ lessonId: userProgressTable.lessonId, xpEarned: userProgressTable.xpEarned, createdAt: userProgressTable.completedAt })
+  const completedProgress = await db.select({ 
+    lessonId: userProgressTable.lessonId, 
+    xpEarned: userProgressTable.xpEarned, 
+    createdAt: userProgressTable.completedAt 
+  })
     .from(userProgressTable).where(eq(userProgressTable.userId, userId));
 
   const completedLessonIds = new Set(completedProgress.map(p => p.lessonId));
   const passedQuizzes = completedProgress.filter(p => p.xpEarned > 50).length;
 
-  const totalLessons = await db.select({ count: count() }).from(lessonsTable);
-  const totalLessonsCount = totalLessons[0]?.count || 0;
+  const totalLessonsResult = await db.select({ count: count() }).from(lessonsTable);
+  const totalLessonsCount = totalLessonsResult[0]?.count || 0;
 
   // Language stats per course
   const courses = await db.select({
@@ -67,7 +71,7 @@ router.get("/users/me/dashboard", requireAuth, async (req, res) => {
     passedQuizzes,
     codeExecutions: 0,
     languageStats,
-    recentActivity: recentActivity.map(a => ({ ...a, createdAt: a.createdAt.toISOString() })),
+    recentActivity: recentActivity.map((a: ActivityLog) => ({ ...a, createdAt: a.createdAt.toISOString() })),
     weeklyXp,
   });
 });
@@ -75,6 +79,7 @@ router.get("/users/me/dashboard", requireAuth, async (req, res) => {
 router.get("/users/me/progress", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const completedProgress = await db.select({ lessonId: userProgressTable.lessonId, xpEarned: userProgressTable.xpEarned })
     .from(userProgressTable).where(eq(userProgressTable.userId, userId));
@@ -115,6 +120,7 @@ router.get("/users/me/progress", requireAuth, async (req, res) => {
 router.get("/users/me/achievements", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (!user) { res.status(401).json({ error: "User not found" }); return; }
 
   const allAchievements = await db.select().from(achievementsTable).orderBy(achievementsTable.sortOrder);
   const userAchievements = await db.select().from(userAchievementsTable).where(eq(userAchievementsTable.userId, userId));
@@ -131,7 +137,7 @@ router.get("/users/me/achievements", requireAuth, async (req, res) => {
   const userAchievementsUpdated = await db.select().from(userAchievementsTable).where(eq(userAchievementsTable.userId, userId));
   const earnedMap = new Map(userAchievementsUpdated.map(ua => [ua.achievementId, ua.earnedAt]));
 
-  res.json(allAchievements.map(a => ({
+  res.json(allAchievements.map((a: Achievement) => ({
     id: a.id,
     nameAr: a.nameAr,
     nameEn: a.nameEn,

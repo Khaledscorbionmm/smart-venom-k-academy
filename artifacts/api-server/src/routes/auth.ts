@@ -2,7 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { db, usersTable, userLoginsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { requireAuth, XP_TO_LEVEL } from "../lib/auth";
+import { requireAuth } from "../lib/auth";
 
 const router = Router();
 
@@ -110,7 +110,7 @@ router.post("/auth/login", async (req, res) => {
       userId: user.id,
       ipAddress,
       location,
-      userAgent: req.headers["user-agent"] || null,
+      userAgent: (req.headers["user-agent"] as string) || null,
     });
 
     // Regenerate session to prevent session fixation
@@ -161,13 +161,17 @@ router.get("/auth/me", requireAuth, async (req, res) => {
 router.patch("/users/me/profile", requireAuth, async (req, res) => {
   try {
     const { username, languagePreference, avatarUrl } = req.body;
-    const updates: Record<string, unknown> = { updatedAt: new Date() };
+    const updates: any = { updatedAt: new Date() };
     if (username) updates.username = username;
     if (languagePreference) updates.languagePreference = languagePreference;
     if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
     const [user] = await db.update(usersTable).set(updates)
       .where(eq(usersTable.id, req.session.userId!))
       .returning();
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
     const { passwordHash: _ph, ...safeUser } = user;
     res.json({ ...safeUser, createdAt: safeUser.createdAt.toISOString() });
   } catch {

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, coursesTable, chaptersTable, lessonsTable, userProgressTable, subscriptionsTable, usersTable } from "@workspace/db";
-import { eq, and, count, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -25,7 +25,7 @@ router.get("/courses", async (req, res) => {
 
   const courses = await query;
   let result = courses;
-  if (category) result = courses.filter(c => c.category === category);
+  if (category && typeof category === "string") result = courses.filter(c => c.category === category);
   res.json(result.map(c => ({ ...c, price: parseFloat(c.price as unknown as string) })));
 });
 
@@ -75,12 +75,10 @@ router.get("/courses/:slug", async (req, res) => {
   }
 
   let completedLessonIds: number[] = [];
-  let userXpEarned = 0;
   if (userId) {
-    const progress = await db.select({ lessonId: userProgressTable.lessonId, xpEarned: userProgressTable.xpEarned })
+    const progress = await db.select({ lessonId: userProgressTable.lessonId })
       .from(userProgressTable).where(eq(userProgressTable.userId, userId));
     completedLessonIds = progress.map(p => p.lessonId);
-    userXpEarned = progress.reduce((sum, p) => sum + p.xpEarned, 0);
   }
 
   const chaptersWithLessons = await Promise.all(chapters.map(async (ch) => {
@@ -100,21 +98,16 @@ router.get("/courses/:slug", async (req, res) => {
       lessons: lessons.map(l => ({
         ...l,
         isCompleted: completedLessonIds.includes(l.id),
-        hasVideo: !!(l.videoUrlAr || l.videoUrlEn),
+        isLocked: !hasAccess && !l.isFree,
       })),
     };
   }));
 
-  const totalLessons = chaptersWithLessons.reduce((s, ch) => s + ch.lessons.length, 0);
-
   res.json({
     ...course,
     price: parseFloat(course.price as unknown as string),
-    hasAccess,
-    userXpEarned,
-    totalLessons,
-    totalChapters: chapters.length,
     chapters: chaptersWithLessons,
+    hasAccess,
   });
 });
 

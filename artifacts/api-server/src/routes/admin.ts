@@ -1,6 +1,6 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, coursesTable, lessonsTable, subscriptionsTable, userLoginsTable } from "@workspace/db";
+import { db, usersTable, coursesTable, lessonsTable, subscriptionsTable, userLoginsTable, type UserLogin } from "@workspace/db";
 import { eq, count, sql, desc } from "drizzle-orm";
 import { requireAdmin } from "../lib/auth";
 
@@ -38,7 +38,7 @@ router.get("/admin/users/:id/logins", requireAdmin, async (req, res) => {
     const logins = await db.select().from(userLoginsTable)
       .where(eq(userLoginsTable.userId, id))
       .orderBy(desc(userLoginsTable.createdAt));
-    res.json(logins.map(l => ({ ...l, createdAt: l.createdAt.toISOString() })));
+    res.json(logins.map((l: UserLogin) => ({ ...l, createdAt: l.createdAt.toISOString() })));
   } catch {
     res.status(500).json({ error: "Failed to fetch login history" });
   }
@@ -65,7 +65,7 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
   try {
     const id = parseInt(String(req.params.id));
     const { role, xp, level } = req.body;
-    const updates: Record<string, unknown> = { updatedAt: new Date() };
+    const updates: any = { updatedAt: new Date() };
     if (role) updates.role = role;
     if (xp !== undefined) updates.xp = xp;
     if (level !== undefined) updates.level = level;

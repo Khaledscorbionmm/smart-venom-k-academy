@@ -82,7 +82,7 @@ app.use(cookieParser());
 
 // Session hardening
 const sessionSecret = process.env.SESSION_SECRET;
-if (!sessionSecret) {
+if (!sessionSecret && process.env.NODE_ENV === "production") {
   logger.error("SESSION_SECRET is not set! Shutting down.");
   process.exit(1);
 }
@@ -96,7 +96,7 @@ app.use(
       createTableIfMissing: true,
       tableName: "session",
     }),
-    secret: sessionSecret,
+    secret: sessionSecret || "dev-secret",
     resave: false,
     saveUninitialized: false,
     proxy: true,

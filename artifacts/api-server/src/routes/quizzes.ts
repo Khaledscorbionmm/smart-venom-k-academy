@@ -47,18 +47,20 @@ router.post("/quizzes/:lessonId/submit", requireAuth, async (req, res) => {
   // Update user XP
   if (xpEarned > 0) {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-    const newXp = user.xp + xpEarned;
-    const newLevel = XP_TO_LEVEL(newXp);
-    await db.update(usersTable).set({ xp: newXp, level: newLevel, updatedAt: new Date() }).where(eq(usersTable.id, userId));
+    if (user) {
+      const newXp = user.xp + xpEarned;
+      const newLevel = XP_TO_LEVEL(newXp);
+      await db.update(usersTable).set({ xp: newXp, level: newLevel, updatedAt: new Date() }).where(eq(usersTable.id, userId));
 
-    const [lesson] = await db.select().from(lessonsTable).where(eq(lessonsTable.id, lessonId)).limit(1);
-    await db.insert(activityLogTable).values({
-      userId,
-      type: "quiz_complete",
-      titleAr: `أجبت على اختبار: ${lesson?.titleAr || ""}`,
-      titleEn: `Completed quiz: ${lesson?.titleEn || ""}`,
-      xpEarned,
-    });
+      const [lesson] = await db.select().from(lessonsTable).where(eq(lessonsTable.id, lessonId)).limit(1);
+      await db.insert(activityLogTable).values({
+        userId,
+        type: "quiz_complete",
+        titleAr: `أجبت على اختبار: ${lesson?.titleAr || ""}`,
+        titleEn: `Completed quiz: ${lesson?.titleEn || ""}`,
+        xpEarned,
+      });
+    }
   }
 
   // Update progress record if passed and already exists

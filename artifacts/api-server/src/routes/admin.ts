@@ -37,6 +37,17 @@ router.get("/admin/users/:id/logins", requireAdmin, async (req, res) => {
   })));
 });
 
+router.delete("/admin/users/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(String(req.params.id));
+  if (req.session.userId === id) {
+    res.status(400).json({ error: "Cannot delete your own account" });
+    return;
+  }
+  const [deleted] = await db.delete(usersTable).where(eq(usersTable.id, id)).returning();
+  if (!deleted) { res.status(404).json({ error: "User not found" }); return; }
+  res.json({ success: true });
+});
+
 router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
   const id = parseInt(String(req.params.id));
   const { role, xp, level } = req.body;

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { db, lessonsTable, chaptersTable, coursesTable, quizQuestionsTable, userProgressTable, usersTable, subscriptionsTable, activityLogTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
@@ -6,6 +7,15 @@ import { XP_TO_LEVEL } from "../lib/auth";
 import { executeCode } from "../lib/codeExecutor";
 
 const router = Router();
+
+// Stricter rate limit specifically for code execution: 60 runs per 10 minutes per IP
+const executeLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 60,
+  message: { error: "Too many code execution requests. Please slow down." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 router.get("/lessons/:id", async (req, res) => {
   const id = parseInt(String(req.params.id));
@@ -133,10 +143,14 @@ router.post("/lessons/:id/complete", requireAuth, async (req, res) => {
   res.json({ xpEarned: lesson.xpReward, totalXp: newXp, leveledUp: newLevel > oldLevel, newLevel, streakUpdated, newStreak });
 });
 
-router.post("/lessons/:id/execute", async (req, res) => {
+router.post("/lessons/:id/execute", executeLimiter, async (req, res) => {
   const { code, language } = req.body;
   if (!code || !language) {
     res.status(400).json({ error: "code and language are required" });
+    return;
+  }
+  if (typeof code !== "string" || code.length > 100_000) {
+    res.status(400).json({ error: "Code must be a string of at most 100,000 characters" });
     return;
   }
 

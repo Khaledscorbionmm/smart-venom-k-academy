@@ -34,6 +34,13 @@ COPY --from=builder /app/artifacts/api-server/dist ./artifacts/api-server/dist
 # Copy frontend static assets (served by Express in production mode)
 COPY --from=builder /app/artifacts/academy/dist/public ./artifacts/academy/dist/public
 
+# Copy startup script (runs DB migration then starts server)
+COPY scripts/startup.mjs ./scripts/startup.mjs
+COPY scripts/migrate.sql ./scripts/migrate.sql
+
+# pg is needed by startup.mjs for migration (install lightweight)
+RUN npm install --no-save pg
+
 # Directory for video file uploads
 RUN mkdir -p uploads/videos
 
@@ -42,7 +49,8 @@ ENV PORT=8080
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
   CMD curl -f http://localhost:8080/api/healthz || exit 1
 
-CMD ["node", "artifacts/api-server/dist/index.mjs"]
+# startup.mjs: runs DB migration first, then starts the API server
+CMD ["node", "scripts/startup.mjs"]

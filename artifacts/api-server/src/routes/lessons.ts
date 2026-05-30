@@ -69,19 +69,24 @@ router.get("/lessons/:id", async (req, res) => {
     audioUrlAr: lesson.audioUrlAr,
     audioUrlEn: lesson.audioUrlEn,
     quizQuestions: quizQuestions.map(q => {
-      // options stored as string[] — convert to { id, textAr, textEn } objects
-      const rawOptions = (q.options as unknown as string[]) || [];
+      // options are stored as jsonb: Array<{ id: string; textAr: string; textEn: string }>
+      const rawOptions = (q.options as unknown as any[]) || [];
       return {
         id: q.id,
         questionAr: q.questionAr,
         questionEn: q.questionEn,
         correctOptionId: q.correctOptionId,
         xpReward: q.xpReward,
-        options: rawOptions.map((text, idx) => ({
-          id: String(idx),
-          textAr: text,
-          textEn: text,
-        })),
+        options: rawOptions.map((opt, idx) => {
+          if (typeof opt === 'string') {
+            return {
+              id: String(idx),
+              textAr: opt,
+              textEn: opt,
+            };
+          }
+          return opt;
+        }),
       };
     }),
   });

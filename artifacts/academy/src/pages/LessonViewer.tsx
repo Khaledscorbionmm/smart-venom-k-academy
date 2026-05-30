@@ -89,8 +89,18 @@ export default function LessonViewer() {
     return () => clearTimeout(timer);
   }, [playNarration]);
 
-  if (isLoading || !lesson) {
+  if (isLoading) {
     return <LessonSkeleton />;
+  }
+
+  if (!lesson) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+        <AlertTriangle className="w-12 h-12 text-yellow-500" />
+        <h2 className="text-xl font-bold">{t('الدرس غير موجود', 'Lesson not found')}</h2>
+        <Button onClick={() => setLocation('/courses')}>{t('العودة للمسارات', 'Back to Courses')}</Button>
+      </div>
+    );
   }
 
   const handleRunCode = () => {

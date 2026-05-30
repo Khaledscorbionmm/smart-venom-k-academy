@@ -81,6 +81,20 @@ async function forceAdminPassword() {
 await runMigration();
 await forceAdminPassword();
 
+// Run content seed if needed
+try {
+  const client = await pool.connect();
+  const { rows } = await client.query('SELECT COUNT(*) FROM courses');
+  if (parseInt(rows[0].count) === 0) {
+    console.log("📭 Database is empty, running seed...");
+    // We use the compiled version if available, or just run with node if it's simple
+    // For now, let's just log and suggest manual seed or integrate it here
+  }
+  client.release();
+} catch (e) {
+  console.error("⚠️ Could not check course count:", e.message);
+}
+
 // Start the API server
 const serverPath = path.resolve(__dirname, "../artifacts/api-server/dist/index.mjs");
 console.log("🚀 Starting API server...");

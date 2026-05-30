@@ -86,11 +86,12 @@ app.use(
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
+    proxy: true,
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: "auto" as any,
+      sameSite: "lax",
     },
   }),
 );
@@ -106,7 +107,18 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Serve the React frontend in production
 if (process.env.NODE_ENV === "production") {
-  const frontendDist = path.join(process.cwd(), "artifacts/academy/dist/public");
+  // FRONTEND_DIST_PATH env var allows overriding (useful for local testing).
+  // In Docker (Railway): CMD runs node from WORKDIR=/app, so cwd()=/app
+  //   → artifacts/academy/dist/public is correct.
+  // In pnpm dev: pnpm runs from artifacts/api-server dir, so cwd()=artifacts/api-server
+  //   → ../academy/dist/public is correct.
+  // We detect the environment by checking if cwd ends with "api-server".
+  const cwd = process.cwd();
+  const isRunningFromApiServerDir = cwd.endsWith("api-server") || cwd.endsWith("api-server/");
+  const defaultFrontendPath = isRunningFromApiServerDir
+    ? path.resolve(cwd, "../academy/dist/public")
+    : path.join(cwd, "artifacts/academy/dist/public");
+  const frontendDist = process.env.FRONTEND_DIST_PATH || defaultFrontendPath;
   app.use(express.static(frontendDist));
   // SPA catch-all — return index.html for any non-API route (Express 5 requires named wildcard)
   app.get("*splat", (_req, res) => {

@@ -62,21 +62,55 @@ export default function Admin() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const isAdmin = user?.role === "admin";
+
+  // ── Data queries ─────────────────────────────────────────────────────────
   const { data: stats } = useGetAdminStats({ query: { queryKey: getGetAdminStatsQueryKey(), enabled: isAdmin } as any });
   const { data: users } = useAdminGetUsers({ query: { queryKey: getAdminGetUsersQueryKey(), enabled: isAdmin } as any });
   const { data: subscriptions } = useGetSubscriptions({ query: { queryKey: getGetSubscriptionsQueryKey(), enabled: isAdmin } as any });
-
   const { data: selectedLogins, isLoading: loginsLoading } = useGetAdminUserLogins(
     selectedUser?.id || 0,
     { query: { enabled: !!selectedUser?.id && showUserDialog } as any }
   );
 
+  // ── Mutations ────────────────────────────────────────────────────────────
   const approveSub = useApproveSubscription();
   const rejectSub = useRejectSubscription();
   const suspendSub = useSuspendSubscription();
   const reactivateSub = useReactivateSubscription();
   const updateUser = useAdminUpdateUser();
 
+  // ── Derived data — MUST be before any conditional return (Rules of Hooks) ─
+  const allSubs = Array.isArray(subscriptions) ? subscriptions : [];
+  const pendingCount   = allSubs.filter(s => s.status === "pending").length;
+  const activeCount    = allSubs.filter(s => s.status === "active").length;
+  const suspendedCount = allSubs.filter(s => s.status === "suspended").length;
+
+  // useMemo hooks BEFORE any conditional return
+  const filteredSubs = useMemo(() => {
+    return allSubs
+      .filter(s => subFilter === "all" || s.status === subFilter)
+      .filter(s => {
+        if (!subSearch) return true;
+        const q = subSearch.toLowerCase();
+        return (
+          (s.username || "").toLowerCase().includes(q) ||
+          (s.userEmail || "").toLowerCase().includes(q) ||
+          (s.courseTitleAr || "").toLowerCase().includes(q) ||
+          (s.courseTitleEn || "").toLowerCase().includes(q)
+        );
+      });
+  }, [allSubs, subFilter, subSearch]);
+
+  const filteredUsers = useMemo(() => {
+    if (!users) return [];
+    if (!userSearch) return users;
+    const q = userSearch.toLowerCase();
+    return users.filter(u =>
+      u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+    );
+  }, [users, userSearch]);
+
+  // ── Guards ────────────────────────────────────────────────────────────────
   if (user?.role !== "admin") return <Redirect to="/dashboard" />;
 
   const isAdminDataLoading = !stats || !users || !subscriptions;
@@ -93,6 +127,7 @@ export default function Admin() {
     );
   }
 
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const invalidateSubs = () => {
     queryClient.invalidateQueries({ queryKey: getGetSubscriptionsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });
@@ -159,44 +194,16 @@ export default function Admin() {
     }
   };
 
-  const allSubs = subscriptions || [];
-  const pendingCount = allSubs.filter(s => s.status === "pending").length;
-  const activeCount  = allSubs.filter(s => s.status === "active").length;
-  const suspendedCount = allSubs.filter(s => s.status === "suspended").length;
-
-  const filteredSubs = useMemo(() => {
-    return allSubs
-      .filter(s => subFilter === "all" || s.status === subFilter)
-      .filter(s => {
-        if (!subSearch) return true;
-        const q = subSearch.toLowerCase();
-        return (
-          (s.username || "").toLowerCase().includes(q) ||
-          (s.userEmail || "").toLowerCase().includes(q) ||
-          (s.courseTitleAr || "").toLowerCase().includes(q) ||
-          (s.courseTitleEn || "").toLowerCase().includes(q)
-        );
-      });
-  }, [allSubs, subFilter, subSearch]);
-
-  const filteredUsers = useMemo(() => {
-    if (!users) return [];
-    if (!userSearch) return users;
-    const q = userSearch.toLowerCase();
-    return users.filter(u =>
-      u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
-    );
-  }, [users, userSearch]);
-
+  // ── Stat cards ────────────────────────────────────────────────────────────
   const statCards = [
-    { icon: Users,     value: stats?.totalUsers || 0,           label: t("إجمالي المتدربين", "Total Trainees"),      color: "text-blue-400",   bg: "bg-blue-500/10" },
-    { icon: Activity,  value: stats?.todaySignups || 0,          label: t("سجل اليوم", "Today's Signups"),         color: "text-green-400",  bg: "bg-green-500/10" },
-    { icon: Clock,     value: pendingCount,                      label: t("طلبات انتظار", "Pending Requests"),        color: "text-yellow-400", bg: "bg-yellow-500/10" },
-    { icon: Monitor,   value: stats?.todayLogins || 0,           label: t("دخول اليوم", "Today's Logins"),          color: "text-cyan-400",  bg: "bg-cyan-500/10" },
-    { icon: BookOpen,  value: stats?.totalCourses || 0,          label: t("إجمالي المسارات", "Total Courses"),        color: "text-purple-400", bg: "bg-purple-500/10" },
-    { icon: TrendingUp, value: stats?.totalXpAwarded || 0,       label: t("مجموع الخبرة XP", "Total XP Awarded"),    color: "text-pink-400",   bg: "bg-pink-500/10" },
-    { icon: CreditCard, value: activeCount,                      label: t("اشتراكات نشطة", "Active Subs"),        color: "text-cyan-400",  bg: "bg-cyan-500/10" },
-    { icon: Award,     value: stats?.recentSignups || 0,         label: t("انضم مؤخراً", "Recent Signups"),          color: "text-indigo-400", bg: "bg-indigo-500/10" },
+    { icon: Users,      value: stats?.totalUsers || 0,     label: t("إجمالي المتدربين", "Total Trainees"),   color: "text-blue-400",   bg: "bg-blue-500/10" },
+    { icon: Activity,   value: stats?.todaySignups || 0,    label: t("سجل اليوم", "Today's Signups"),        color: "text-green-400",  bg: "bg-green-500/10" },
+    { icon: Clock,      value: pendingCount,                label: t("طلبات انتظار", "Pending Requests"),     color: "text-yellow-400", bg: "bg-yellow-500/10" },
+    { icon: Monitor,    value: stats?.todayLogins || 0,     label: t("دخول اليوم", "Today's Logins"),        color: "text-cyan-400",   bg: "bg-cyan-500/10" },
+    { icon: BookOpen,   value: stats?.totalCourses || 0,    label: t("إجمالي المسارات", "Total Courses"),     color: "text-purple-400", bg: "bg-purple-500/10" },
+    { icon: TrendingUp, value: stats?.totalXpAwarded || 0,  label: t("مجموع الخبرة XP", "Total XP Awarded"), color: "text-pink-400",   bg: "bg-pink-500/10" },
+    { icon: CreditCard, value: activeCount,                 label: t("اشتراكات نشطة", "Active Subs"),        color: "text-cyan-400",   bg: "bg-cyan-500/10" },
+    { icon: Award,      value: stats?.recentSignups || 0,   label: t("انضم مؤخراً", "Recent Signups"),       color: "text-indigo-400", bg: "bg-indigo-500/10" },
   ];
 
   const filterButtons: { key: SubStatus; labelAr: string; labelEn: string; count?: number }[] = [

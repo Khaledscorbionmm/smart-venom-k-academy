@@ -1,7 +1,5 @@
 # Smart Venom K Academy — Production Dockerfile
 # Build stage uses Debian (glibc) to match Replit's environment where the lockfile was created.
-# Native modules like rollup use glibc binaries; Alpine (musl) causes MODULE_NOT_FOUND errors.
-# Production stage is minimal Alpine since the api-server is a fully self-contained esbuild bundle.
 
 # ─── Build stage (Debian/glibc — matches Replit's libc) ───────────────────
 FROM node:22-slim AS builder
@@ -22,11 +20,21 @@ RUN pnpm --filter @workspace/academy run build
 # Build API server (esbuild bundle → artifacts/api-server/dist/index.mjs)
 RUN pnpm --filter @workspace/api-server run build
 
-# ─── Production stage (Alpine — tiny image, no node_modules needed) ───────
-FROM node:22-alpine AS production
+# ─── Production stage (Debian slim — needed for glibc native modules + language tools) ───────
+FROM node:22-slim AS production
 WORKDIR /app
 
-RUN apk add --no-cache curl
+# Install curl for healthcheck + language runtimes for code executor
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    python3 \
+    python3-pip \
+    g++ \
+    gcc \
+    default-jdk \
+    golang \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy fully-bundled API server (esbuild bundles all deps, no node_modules needed)
 COPY --from=builder /app/artifacts/api-server/dist ./artifacts/api-server/dist

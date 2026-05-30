@@ -39,8 +39,10 @@ router.post("/quizzes/:lessonId/submit", requireAuth, async (req, res) => {
     };
   });
 
-  const score = (correctAnswers / questions.length) * 100;
-  const passed = score >= 60;
+  // score = number of correct answers (what the frontend expects for display: score/totalQuestions)
+  const score = correctAnswers;
+  const percentage = Math.round((correctAnswers / questions.length) * 100);
+  const passed = percentage >= 60;
 
   // Update user XP
   if (xpEarned > 0) {
@@ -59,16 +61,16 @@ router.post("/quizzes/:lessonId/submit", requireAuth, async (req, res) => {
     });
   }
 
-  // Update progress if passed and not already marked
+  // Update progress record if passed and already exists
   if (passed) {
     const [existing] = await db.select().from(userProgressTable)
       .where(and(eq(userProgressTable.userId, userId), eq(userProgressTable.lessonId, lessonId))).limit(1);
     if (existing) {
-      await db.update(userProgressTable).set({ quizScore: Math.round(score), passed }).where(eq(userProgressTable.id, existing.id));
+      await db.update(userProgressTable).set({ quizScore: percentage, passed }).where(eq(userProgressTable.id, existing.id));
     }
   }
 
-  res.json({ score, totalQuestions: questions.length, correctAnswers, xpEarned, results });
+  res.json({ score, totalQuestions: questions.length, correctAnswers, xpEarned, percentage, results });
 });
 
 export default router;

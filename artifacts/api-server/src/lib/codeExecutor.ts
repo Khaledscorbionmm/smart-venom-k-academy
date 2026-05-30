@@ -13,7 +13,14 @@ export interface ExecutionResult {
 const TIMEOUT_MS = 15000;
 
 export const EXECUTABLE_LANGUAGES = [
-  "python", "javascript", "typescript", "java", "cpp", "rust", "go",
+  "python", "python3", "python2",
+  "javascript", "js",
+  "typescript", "ts",
+  "java",
+  "cpp", "c++",
+  "c",
+  "rust",
+  "go",
 ] as const;
 export type ExecutableLanguage = (typeof EXECUTABLE_LANGUAGES)[number];
 
@@ -93,27 +100,34 @@ async function runPython(code: string, workDir: string, version: 2 | 3 = 3): Pro
   const file = join(workDir, "main.py");
   writeFileSync(file, code);
   const start = Date.now();
-  const pythonCmd = version === 2 ? "python2" : "python3";
-  const { stdout, stderr, exitCode, timedOut } = await runProcess(
-    pythonCmd, [file], null, TIMEOUT_MS
-  );
-  if (timedOut) {
-    return { success: false, output: `⏱️ Execution timed out after ${TIMEOUT_MS / 1000}s`, error: "Timeout", executionTime: Date.now() - start };
+  // Try python3 first, then python
+  const pythonCmds = version === 2 ? ["python2", "python"] : ["python3", "python"];
+  let lastErr = "";
+  for (const cmd of pythonCmds) {
+    const { stdout, stderr, exitCode, timedOut } = await runProcess(cmd, [file], null, TIMEOUT_MS);
+    if (timedOut) {
+      return { success: false, output: `⏱️ Execution timed out after ${TIMEOUT_MS / 1000}s`, error: "Timeout", executionTime: Date.now() - start };
+    }
+    if (exitCode === -1 && stderr.includes("No such file")) {
+      lastErr = stderr;
+      continue; // try next command
+    }
+    const out = stdout || (exitCode !== 0 ? stderr : "(no output)");
+    return { success: exitCode === 0, output: out, error: exitCode !== 0 ? stderr : null, executionTime: Date.now() - start };
   }
-  const out = stdout || (exitCode !== 0 ? stderr : "(no output)");
-  return { success: exitCode === 0, output: out, error: exitCode !== 0 ? stderr : null, executionTime: Date.now() - start };
+  return { success: false, output: "❌ Python not available in this environment", error: lastErr, executionTime: Date.now() - start };
 }
 
-async function runTypeScript(code: string, workDir: string): Promise<ExecutionResult> {
-  const file = join(workDir, "main.ts");
-  writeFileSync(file, code);
+async function runC(code: string, workDir: string): Promise<ExecutionResult> {
+  const srcFile = join(workDir, "main.c");
+  const outFile = join(workDir, "main");
+  writeFileSync(srcFile, code);
   const start = Date.now();
-  const { stdout, stderr, exitCode, timedOut } = await runProcess(
-    "node",
-    ["--import", "data:text/javascript,import{register}from\"module\";import{pathToFileURL}from\"url\";", file],
-    null,
-    TIMEOUT_MS
-  );
+  const compile = await runProcess("gcc", ["-o", outFile, srcFile, "-lm"], null, TIMEOUT_MS);
+  if (compile.exitCode !== 0) {
+    return { success: false, output: compile.stderr || "❌ Compilation failed", error: compile.stderr, executionTime: Date.now() - start };
+  }
+  const { stdout, stderr, exitCode, timedOut } = await runProcess(outFile, [], null, TIMEOUT_MS);
   if (timedOut) {
     return { success: false, output: `⏱️ Timed out after ${TIMEOUT_MS / 1000}s`, error: "Timeout", executionTime: Date.now() - start };
   }
@@ -126,9 +140,9 @@ async function runCpp(code: string, workDir: string): Promise<ExecutionResult> {
   const outFile = join(workDir, "main");
   writeFileSync(srcFile, code);
   const start = Date.now();
-  const compile = await runProcess("g++", ["-o", outFile, srcFile, "-std=c++17"], null, TIMEOUT_MS);
+  const compile = await runProcess("g++", ["-o", outFile, srcFile, "-std=c++17", "-lm"], null, TIMEOUT_MS);
   if (compile.exitCode !== 0) {
-    return { success: false, output: compile.stderr || compile.stdout || "❌ Compilation failed", error: compile.stderr, executionTime: Date.now() - start };
+    return { success: false, output: compile.stderr || "❌ Compilation failed", error: compile.stderr, executionTime: Date.now() - start };
   }
   const { stdout, stderr, exitCode, timedOut } = await runProcess(outFile, [], null, TIMEOUT_MS);
   if (timedOut) {
@@ -138,13 +152,53 @@ async function runCpp(code: string, workDir: string): Promise<ExecutionResult> {
   return { success: exitCode === 0, output: out, error: exitCode !== 0 ? stderr : null, executionTime: Date.now() - start };
 }
 
-function unsupportedLanguage(lang: string): ExecutionResult {
-  return {
-    success: false,
-    output: `⚠️ Language "${lang}" requires compilation and is not available in the sandbox environment.\n\nSupported languages: Python 2/3, JavaScript, C++\nOther languages (Java, Rust, Go, TypeScript) — coming soon!`,
-    error: `Unsupported language: ${lang}`,
-    executionTime: 0,
-  };
+async function runJava(code: string, workDir: string): Promise<ExecutionResult> {
+  // Extract class name
+  const classMatch = code.match(/public\s+class\s+(\w+)/);
+  const className = classMatch ? classMatch[1] : "Main";
+  const srcFile = join(workDir, `${className}.java`);
+  writeFileSync(srcFile, code);
+  const start = Date.now();
+
+  const compile = await runProcess("javac", [srcFile], null, TIMEOUT_MS);
+  if (compile.exitCode !== 0) {
+    return { success: false, output: compile.stderr || "❌ Compilation failed", error: compile.stderr, executionTime: Date.now() - start };
+  }
+  const { stdout, stderr, exitCode, timedOut } = await runProcess("java", ["-cp", workDir, className], null, TIMEOUT_MS);
+  if (timedOut) {
+    return { success: false, output: `⏱️ Timed out after ${TIMEOUT_MS / 1000}s`, error: "Timeout", executionTime: Date.now() - start };
+  }
+  const out = stdout || (exitCode !== 0 ? stderr : "(no output)");
+  return { success: exitCode === 0, output: out, error: exitCode !== 0 ? stderr : null, executionTime: Date.now() - start };
+}
+
+async function runGo(code: string, workDir: string): Promise<ExecutionResult> {
+  const file = join(workDir, "main.go");
+  writeFileSync(file, code);
+  const start = Date.now();
+  const { stdout, stderr, exitCode, timedOut } = await runProcess("go", ["run", file], null, TIMEOUT_MS);
+  if (timedOut) {
+    return { success: false, output: `⏱️ Timed out after ${TIMEOUT_MS / 1000}s`, error: "Timeout", executionTime: Date.now() - start };
+  }
+  const out = stdout || (exitCode !== 0 ? stderr : "(no output)");
+  return { success: exitCode === 0, output: out, error: exitCode !== 0 ? stderr : null, executionTime: Date.now() - start };
+}
+
+async function runRust(code: string, workDir: string): Promise<ExecutionResult> {
+  const srcFile = join(workDir, "main.rs");
+  const outFile = join(workDir, "main");
+  writeFileSync(srcFile, code);
+  const start = Date.now();
+  const compile = await runProcess("rustc", ["-o", outFile, srcFile], null, TIMEOUT_MS);
+  if (compile.exitCode !== 0) {
+    return { success: false, output: compile.stderr || "❌ Compilation failed", error: compile.stderr, executionTime: Date.now() - start };
+  }
+  const { stdout, stderr, exitCode, timedOut } = await runProcess(outFile, [], null, TIMEOUT_MS);
+  if (timedOut) {
+    return { success: false, output: `⏱️ Timed out after ${TIMEOUT_MS / 1000}s`, error: "Timeout", executionTime: Date.now() - start };
+  }
+  const out = stdout || (exitCode !== 0 ? stderr : "(no output)");
+  return { success: exitCode === 0, output: out, error: exitCode !== 0 ? stderr : null, executionTime: Date.now() - start };
 }
 
 export function isExecutableLanguage(language: string): language is ExecutableLanguage {
@@ -154,16 +208,7 @@ export function isExecutableLanguage(language: string): language is ExecutableLa
 export async function executeCode(language: string, code: string): Promise<ExecutionResult> {
   const normalized = language.toLowerCase().trim();
 
-  if (!isExecutableLanguage(normalized)) {
-    return {
-      success: true,
-      output: `🌐 This is a language learning lesson (${language}).\nCode execution is available for programming languages: Python, JavaScript, TypeScript, C++, and more.`,
-      error: null,
-      executionTime: 0,
-    };
-  }
-
-  if (normalized === "javascript") {
+  if (normalized === "javascript" || normalized === "js") {
     return runInProcessJS(code);
   }
 
@@ -171,17 +216,32 @@ export async function executeCode(language: string, code: string): Promise<Execu
   try {
     switch (normalized) {
       case "python":
+      case "python3":
         return await runPython(code, workDir, 3);
-      case "typescript":
-        return await runTypeScript(code, workDir);
+      case "python2":
+        return await runPython(code, workDir, 2);
+      case "c":
+        return await runC(code, workDir);
       case "cpp":
+      case "c++":
         return await runCpp(code, workDir);
       case "java":
-      case "rust":
+        return await runJava(code, workDir);
       case "go":
-        return unsupportedLanguage(normalized);
+        return await runGo(code, workDir);
+      case "rust":
+        return await runRust(code, workDir);
+      case "typescript":
+      case "ts":
+        // Run as JS after stripping type annotations (basic support)
+        return runInProcessJS(code.replace(/:\s*\w+(\[\])?(\s*[,)=;])/g, "$2").replace(/interface\s+\w+\s*\{[^}]*\}/g, ""));
       default:
-        return { success: false, output: "", error: `Unknown language: ${language}`, executionTime: 0 };
+        return {
+          success: true,
+          output: `🌐 This is a ${language} lesson.\nCode execution sandbox supports: Python, JavaScript, Java, C, C++, Go, Rust.`,
+          error: null,
+          executionTime: 0,
+        };
     }
   } finally {
     try { rmSync(workDir, { recursive: true, force: true }); } catch {}

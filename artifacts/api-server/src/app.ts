@@ -15,8 +15,8 @@ const PgSession = connectPgSimple(session);
 
 const app: Express = express();
 
-// Trust proxy headers behind Replit's reverse proxy (required for express-rate-limit accuracy)
-app.set("trust proxy", 1);
+// Trust all proxy headers (Railway uses multiple proxy layers)
+app.set("trust proxy", true);
 
 // Security: Helmet headers
 app.use(helmet({
@@ -24,15 +24,15 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'", "data:"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      connectSrc: ["'self'", "https:"],
+      fontSrc: ["'self'", "data:", "https:"],
       objectSrc: ["'none'"],
-      upgradeInsecureRequests: [],
+      mediaSrc: ["'self'", "https:", "blob:"],
     },
   },
-  crossOriginEmbedderPolicy: false, // allow fonts/assets from same-origin proxy
+  crossOriginEmbedderPolicy: false,
 }));
 
 app.use(
@@ -49,10 +49,10 @@ app.use(
   }),
 );
 
-// Rate limiting: 300 req / 15 min per IP
+// Rate limiting: 500 req / 15 min per IP
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 500,
   message: { error: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
@@ -61,15 +61,22 @@ app.use(rateLimit({
 // Stricter rate limit for auth endpoints
 const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 15,
+  max: 30,
   message: { error: "Too many login attempts. Please try again in an hour." },
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
 });
 
-app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: "2mb" }));
+// CORS: allow any origin that sends credentials (reflects origin back)
+app.use(cors({
+  origin: (origin, cb) => cb(null, origin || true),
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+}));
+
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
@@ -80,6 +87,8 @@ if (!sessionSecret) {
   process.exit(1);
 }
 
+const isProduction = process.env.NODE_ENV === "production";
+
 app.use(
   session({
     store: new PgSession({ pool, createTableIfMissing: false }),
@@ -87,11 +96,13 @@ app.use(
     resave: false,
     saveUninitialized: false,
     proxy: true,
+    name: "svk.sid",
     cookie: {
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       httpOnly: true,
-      secure: "auto" as any,
-      sameSite: "lax",
+      secure: isProduction,   // true in production (Railway uses HTTPS)
+      sameSite: isProduction ? "none" : "lax", // "none" needed for cross-origin in prod
+      path: "/",
     },
   }),
 );
@@ -102,17 +113,11 @@ app.use("/api/auth/register", authLimiter);
 
 app.use("/api", router);
 
-// Serve uploaded videos statically (range requests handled by videos router; this is fallback)
+// Serve uploaded videos statically
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Serve the React frontend in production
 if (process.env.NODE_ENV === "production") {
-  // FRONTEND_DIST_PATH env var allows overriding (useful for local testing).
-  // In Docker (Railway): CMD runs node from WORKDIR=/app, so cwd()=/app
-  //   → artifacts/academy/dist/public is correct.
-  // In pnpm dev: pnpm runs from artifacts/api-server dir, so cwd()=artifacts/api-server
-  //   → ../academy/dist/public is correct.
-  // We detect the environment by checking if cwd ends with "api-server".
   const cwd = process.cwd();
   const isRunningFromApiServerDir = cwd.endsWith("api-server") || cwd.endsWith("api-server/");
   const defaultFrontendPath = isRunningFromApiServerDir
@@ -120,7 +125,7 @@ if (process.env.NODE_ENV === "production") {
     : path.join(cwd, "artifacts/academy/dist/public");
   const frontendDist = process.env.FRONTEND_DIST_PATH || defaultFrontendPath;
   app.use(express.static(frontendDist));
-  // SPA catch-all — return index.html for any non-API route (Express 5 requires named wildcard)
+  // SPA catch-all
   app.get("*splat", (_req, res) => {
     res.sendFile(path.join(frontendDist, "index.html"));
   });

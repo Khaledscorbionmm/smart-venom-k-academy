@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSound } from '@/contexts/SoundContext';
 import { FantasyRankBadge } from './FantasyRankBadge';
 import { getRank } from '@/lib/fantasyRanks';
-import { MessageCircle, Trophy, User as UserIcon, Shield, Flame, Zap, Sparkles } from 'lucide-react';
+import { MessageCircle, Trophy, User as UserIcon, Shield, Flame, Zap, Sparkles, BookOpen, Code2 } from 'lucide-react';
 import { useLogout } from '@workspace/api-client-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -143,6 +143,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
+      {/* Bottom mobile nav uses BookOpen and Code2 icons above */}
       {/* WhatsApp FAB - positioned away from mascot on mobile */}
       <a
         href="https://wa.me/201034009418"
@@ -153,11 +154,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7" />
       </a>
       
-      {/* Fallback imports for mobile nav */}
-      <div className="hidden"><BookOpen /><Code2 /></div>
     </div>
   );
 }
-
-// Dummy imports for TS
-import { BookOpen, Code as Code2 } from 'lucide-react';

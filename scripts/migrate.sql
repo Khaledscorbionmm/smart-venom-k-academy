@@ -193,7 +193,7 @@ INSERT INTO users (username, email, password_hash, role, xp, level, language_pre
 VALUES (
   'admin',
   'admin@smartvenomk.com',
-  'b2$e7joUidxrDBcAa5JE9JEJuMUQTIX6OUz2W9XfxGqH5/ZMngrl3tpi',
+  '$2b$12$5mtVwgsOpiP.fyF9kak5z.1b6M8uAu1n8q84y2tHcBjbIkfmYjG2K',
   'admin',
   9999,
   10,
@@ -201,7 +201,7 @@ VALUES (
 )
 ON CONFLICT (email) DO UPDATE SET
   role          = 'admin',
-  password_hash = 'b2$e7joUidxrDBcAa5JE9JEJuMUQTIX6OUz2W9XfxGqH5/ZMngrl3tpi',
+  password_hash = '$2b$12$5mtVwgsOpiP.fyF9kak5z.1b6M8uAu1n8q84y2tHcBjbIkfmYjG2K',
   updated_at    = NOW();
 
 SELECT id, email, role FROM users WHERE email = 'admin@smartvenomk.com';

@@ -91,17 +91,21 @@ const isProduction = process.env.NODE_ENV === "production";
 
 app.use(
   session({
-    store: new PgSession({ pool, createTableIfMissing: false }),
+    store: new PgSession({
+      pool,
+      createTableIfMissing: true,
+      tableName: "session",
+    }),
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     proxy: true,
     name: "svk.sid",
     cookie: {
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      maxAge: 30 * 24 * 60 * 60 * 1000,
       httpOnly: true,
-      secure: isProduction,   // true in production (Railway uses HTTPS)
-      sameSite: isProduction ? "none" : "lax", // "none" needed for cross-origin in prod
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       path: "/",
     },
   }),
@@ -125,7 +129,6 @@ if (process.env.NODE_ENV === "production") {
     : path.join(cwd, "artifacts/academy/dist/public");
   const frontendDist = process.env.FRONTEND_DIST_PATH || defaultFrontendPath;
   app.use(express.static(frontendDist));
-  // SPA catch-all
   app.get("*splat", (_req, res) => {
     res.sendFile(path.join(frontendDist, "index.html"));
   });

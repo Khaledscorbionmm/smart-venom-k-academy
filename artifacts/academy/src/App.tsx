@@ -1,6 +1,6 @@
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { FloatingMascot } from "@/components/FloatingMascot";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -84,7 +84,7 @@ function App() {
                 </WouterRouter>
               </ErrorBoundary>
               <FloatingMascot />
-              <Toaster />
+              <Toaster richColors position="top-center" />
             </TooltipProvider>
           </SoundProvider>
         </AuthProvider>

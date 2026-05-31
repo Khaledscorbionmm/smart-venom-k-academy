@@ -1,529 +1,226 @@
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { useAuth } from "@/contexts/AuthContext";
-import { useGetLesson, useExecuteCode, useSubmitQuiz, useCompleteLesson, getGetLessonQueryKey } from "@workspace/api-client-react";
-import { useParams, useLocation } from "wouter";
+import { useParams } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { apiClient } from "@/lib/api-client";
+import { PageSkeleton } from "@/components/LoadingSkeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
-import { ArrowRight, ArrowLeft, Play, CheckCircle2, Code2, BrainCircuit, BookOpen, Sparkles, Target, Baby, GraduationCap, Zap, Flame, Trophy, Loader2, Terminal, AlertTriangle, Clock } from "lucide-react";
-import { LessonSkeleton } from "@/components/LoadingSkeleton";
-import Editor from "@monaco-editor/react";
-import { useQueryClient } from "@tanstack/react-query";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { AudioPlayer } from "@/components/AudioPlayer";
-import { useSound } from "@/contexts/SoundContext";
-import { ConfettiEffect } from "@/components/ConfettiEffect";
-import { LevelUpModal } from "@/components/LevelUpModal";
-import { FantasyRankBadge } from "@/components/FantasyRankBadge";
-import { getRank } from "@/lib/fantasyRanks";
-import { offlineCache, setupOfflineListener } from "@/lib/offlineCache";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import SimpleCodeEditor from "@/components/SimpleCodeEditor";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function LessonViewer() {
-  const { t, lang } = useLanguage();
-  const { user } = useAuth();
-  const { id } = useParams<{ id: string }>();
-  const lessonId = parseInt(id || "0", 10);
-  const queryClient = useQueryClient();
-  const [, setLocation] = useLocation();
-  const { playSound, playNarration } = useSound();
-  const [confetti, setConfetti] = useState(false);
-  const [showLevelUp, setShowLevelUp] = useState(false);
-
-  const { data: lesson, isLoading } = useGetLesson(lessonId);
-  const executeCode = useExecuteCode();
-  const submitQuiz = useSubmitQuiz();
-  const completeLesson = useCompleteLesson();
-
-  const [code, setCode] = useState("");
-  const [output, setOutput] = useState("");
-  const [execStatus, setExecStatus] = useState<'idle' | 'running' | 'success' | 'error'>('idle');
-  const [execTime, setExecTime] = useState<number | null>(null);
+  const { id } = useParams();
+  const { language } = useLanguage();
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
-  const [quizResults, setQuizResults] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'content' | 'quiz'>('content');
+  const [showResults, setShowResults] = useState(false);
+  const [quizScore, setQuizScore] = useState<number | null>(null);
 
-  // Offline listener + cache load
-  useEffect(() => {
-    const cleanup = setupOfflineListener((msg, type) => {
-      if (type === 'warning') toast.warning(msg);
-      else toast.info(msg);
+  const { data: lesson, isLoading: lessonLoading, error: lessonError } = useQuery({
+    queryKey: ["lesson", id],
+    queryFn: async () => {
+      const response = await apiClient.get(`/lessons/${id}`);
+      return response.data;
+    },
+  });
+
+  const { data: quiz, isLoading: quizLoading } = useQuery({
+    queryKey: ["quiz", id],
+    queryFn: async () => {
+      const response = await apiClient.get(`/quizzes/${id}`);
+      return response.data;
+    },
+  });
+
+  const handleCodeRun = async (code: string) => {
+    try {
+      const response = await apiClient.post("/execute", {
+        code,
+        language: lesson?.language || "python",
+      });
+      return response.data.output || "تم التنفيذ بنجاح";
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || "خطأ في تنفيذ الكود");
+    }
+  };
+
+  const handleAnswerSelect = (questionId: number, optionId: string) => {
+    setSelectedAnswers({
+      ...selectedAnswers,
+      [questionId]: optionId,
     });
-    // Load cached quiz answers
-    const cachedQuiz = offlineCache.loadQuizAnswers(lessonId);
-    if (cachedQuiz) setSelectedAnswers(cachedQuiz);
-    return cleanup;
-  }, [lessonId]);
+  };
 
-  // Initialize code when lesson loads (prefer cached draft)
-  useEffect(() => {
-    if (!lesson) return;
-    const cachedCode = offlineCache.loadCodeDraft(lessonId);
-    if (cachedCode !== null) {
-      setCode(cachedCode);
-    } else if (lesson.codeExample && code === "") {
-      setCode(lesson.codeExample);
+  const handleSubmitQuiz = async () => {
+    try {
+      const response = await apiClient.post(`/quizzes/${id}/submit`, {
+        answers: selectedAnswers,
+      });
+      setQuizScore(response.data.score);
+      setShowResults(true);
+    } catch (error) {
+      console.error("خطأ في إرسال الاختبار:", error);
     }
-  }, [lesson?.id]);
+  };
 
-  // Auto-save code draft every 3 seconds
-  useEffect(() => {
-    if (!code || !lessonId) return;
-    const timer = setTimeout(() => offlineCache.saveCodeDraft(lessonId, code), 3000);
-    return () => clearTimeout(timer);
-  }, [code, lessonId]);
-
-  // Save quiz answers whenever they change
-  useEffect(() => {
-    if (Object.keys(selectedAnswers).length > 0) {
-      offlineCache.saveQuizAnswers(lessonId, selectedAnswers);
-    }
-  }, [selectedAnswers, lessonId]);
-
-  useEffect(() => {
-    // Delay narration to avoid blocking initial render and reduce audio conflicts
-    const timer = setTimeout(() => playNarration("welcome_ar"), 800);
-    return () => clearTimeout(timer);
-  }, [playNarration]);
-
-  if (isLoading) {
-    return <LessonSkeleton />;
+  if (lessonLoading) {
+    return <PageSkeleton />;
   }
 
-  if (!lesson) {
+  if (lessonError || !lesson) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-        <AlertTriangle className="w-12 h-12 text-yellow-500" />
-        <h2 className="text-xl font-bold">{t('الدرس غير موجود', 'Lesson not found')}</h2>
-        <Button onClick={() => setLocation('/courses')}>{t('العودة للمسارات', 'Back to Courses')}</Button>
+      <div className="container mx-auto py-8">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            عذراً، حدث خطأ في تحميل الدرس. يرجى المحاولة لاحقاً.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
-  const handleRunCode = () => {
-    setExecStatus('running');
-    setExecTime(null);
-    executeCode.mutate(
-      { id: lessonId, data: { code, language: lesson.language || 'python' } },
-      {
-        onSuccess: (res) => {
-          setExecStatus(res.success ? 'success' : 'error');
-          setExecTime(res.executionTime ?? null);
-          setOutput(res.output || res.error || t('تم التشغيل بنجاح، لا يوجد مخرجات', 'Executed successfully, no output'));
-        },
-        onError: (err) => {
-          setExecStatus('error');
-          setExecTime(null);
-          toast.error(t('حدث خطأ أثناء تشغيل الكود', 'Error executing code'));
-          setOutput(String(err));
-        }
-      }
-    );
-  };
-
-  const handleQuizSubmit = () => {
-    if (!lesson.quizQuestions) return;
-    playSound('click');
-    
-    const answers = Object.entries(selectedAnswers).map(([qId, optionId]) => ({
-      questionId: parseInt(qId, 10),
-      selectedOptionId: optionId
-    }));
-
-    if (answers.length < lesson.quizQuestions.length) {
-      toast.error(t('يرجى الإجابة على جميع الأسئلة', 'Please answer all questions'));
-      return;
-    }
-
-    submitQuiz.mutate(
-      { lessonId, data: { answers } },
-      {
-        onSuccess: (res) => {
-          setQuizResults(res);
-          if (res.score === res.totalQuestions) {
-            playSound('success');
-            setConfetti(true);
-            setTimeout(() => setConfetti(false), 3000);
-            toast.success(t(`مبارك! ${res.score}/${res.totalQuestions} — درجة كاملة!`, `Amazing! ${res.score}/${res.totalQuestions} — Perfect Score!`));
-            // Auto complete if score is 100%
-            if (!lesson.isCompleted) {
-              handleCompleteLesson();
-            }
-          } else {
-            toast(t(`لقد حصلت على ${res.score}/${res.totalQuestions}`, `You scored ${res.score}/${res.totalQuestions}`));
-          }
-        }
-      }
-    );
-  };
-
-  const handleCompleteLesson = () => {
-    completeLesson.mutate(
-      { id: lessonId },
-      {
-        onSuccess: (res) => {
-          playSound('complete');
-          playNarration('lesson_done_ar');
-          toast.success(t(`تم الإكمال! +${res.xpEarned} Mana!`, `Completed! +${res.xpEarned} Mana!`));
-          setConfetti(true);
-          setTimeout(() => setConfetti(false), 3000);
-          // Check if level up
-          if (user && res.newLevel && res.newLevel > (user.level || 1)) {
-            setTimeout(() => setShowLevelUp(true), 1500);
-          }
-          queryClient.invalidateQueries({ queryKey: getGetLessonQueryKey(lessonId) });
-        }
-      }
-    );
-  };
-
-  // Practice prompt template (per-language)
-  const practicePrompts: Record<string, { ar: string; en: string; starter: string }> = {
-    python:     { ar: "غيّر الكود لطباعة اسمك بدل القيمة الموجودة، وجرّب إضافة سطر جديد بنفسك.", en: "Modify the code to print your name and try adding a new line yourself.", starter: "# جرّب بنفسك\nname = 'اسمك هنا'\nprint(name)" },
-    javascript: { ar: "غيّر الكود لطباعة اسمك في الـ console، وجرّب إضافة متغير جديد.", en: "Change the code to print your name in console and add a new variable.", starter: "// جرّب بنفسك\nconst name = 'اسمك هنا';\nconsole.log(name);" },
-    typescript: { ar: "أنشئ متغير جديد بنوع محدد واطبع قيمته.", en: "Create a typed variable and print its value.", starter: "// جرّب بنفسك\nconst name: string = 'اسمك هنا';\nconsole.log(name);" },
-    java:       { ar: "عدّل الكود لطباعة اسمك ورسالة ترحيب.", en: "Modify to print your name and a welcome message.", starter: "public class App {\n  public static void main(String[] a) {\n    System.out.println(\"اسمك هنا\");\n  }\n}" },
-    cpp:        { ar: "عدّل الكود لطباعة اسمك.", en: "Modify to print your name.", starter: "#include <iostream>\nint main() {\n  std::cout << \"اسمك هنا\";\n  return 0;\n}" },
-    rust:       { ar: "اطبع اسمك ورقم عمرك.", en: "Print your name and age.", starter: "fn main() {\n  let name = \"اسمك هنا\";\n  println!(\"{}\", name);\n}" },
-    go:         { ar: "عدّل الكود ليطبع اسمك.", en: "Modify to print your name.", starter: "package main\nimport \"fmt\"\nfunc main() {\n  fmt.Println(\"اسمك هنا\")\n}" },
-  };
-  const practice = lesson.language ? practicePrompts[lesson.language] : null;
-
-  // Audience level cards
-  const audienceTips = [
-    { icon: Baby,           color: "text-pink-400",   bg: "bg-pink-500/10",   ar: "للأطفال والمبتدئين",      en: "Kids & Beginners",   descAr: "اقرأ ببطء، اسمع التسجيل الصوتي، وكرّر المثال أكثر من مرة.",                           descEn: "Read slowly, play the audio, and repeat the example multiple times." },
-    { icon: GraduationCap,  color: "text-blue-400",   bg: "bg-blue-500/10",   ar: "للشباب والطلاب",          en: "Youth & Students",   descAr: "حاول كتابة كود مشابه، وحلّ الاختبار قبل ما تشوف الإجابات.",                              descEn: "Write similar code and solve the quiz before peeking at answers." },
-    { icon: Target,         color: "text-purple-400", bg: "bg-purple-500/10", ar: "للمحترفين وكبار السن",     en: "Pros & Seniors",     descAr: "ركّز على الـ best practices، عدّل الكود وجرّب سيناريوهات حقيقية.",                       descEn: "Focus on best practices, modify the code, and test real scenarios." },
-  ];
+  const currentQuestion = quiz?.questions?.[currentQuestionIndex];
+  const isLastQuestion = currentQuestionIndex === (quiz?.questions?.length || 0) - 1;
 
   return (
-    <div className="flex-1 flex flex-col container mx-auto max-w-6xl p-3 sm:p-4">
-      <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2">
-        <Button variant="ghost" size="sm" onClick={() => setLocation(`/courses/${lesson.courseSlug}`)} className="shrink-0">
-          {lang === 'ar' ? <ArrowRight className="ms-2 w-4 h-4" /> : <ArrowLeft className="me-2 w-4 h-4" />}
-          <span className="hidden sm:inline">{t('العودة للمسار', 'Back to Course')}</span>
-          <span className="sm:hidden">{t('رجوع', 'Back')}</span>
-        </Button>
-        <div className="flex items-center gap-2 sm:gap-4 flex-wrap justify-end">
-          <span className="flex items-center font-bold text-accent text-sm sm:text-base">
-            <Trophy className="w-4 h-4 sm:w-5 sm:h-5 me-1" />
-            {lesson.xpReward} XP
-          </span>
-          {lesson.isCompleted && (
-            <span className="flex items-center text-green-500 bg-green-500/10 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 me-1" />
-              {t('مكتمل', 'Completed')}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Bilingual title */}
-      <div className="mb-4 sm:mb-6">
-        <h1 className="text-2xl sm:text-4xl font-bold leading-tight" dir="rtl">{lesson.titleAr}</h1>
-        <h2 className="text-lg sm:text-2xl font-semibold text-muted-foreground mt-1" dir="ltr">{lesson.titleEn}</h2>
-      </div>
-
-      {/* Audio player */}
-      <div className="mb-6">
-        <AudioPlayer
-          textAr={`${lesson.titleAr}. ${lesson.contentAr}`}
-          textEn={`${lesson.titleEn}. ${lesson.contentEn}`}
-          audioUrlAr={lesson.audioUrlAr || undefined}
-          audioUrlEn={lesson.audioUrlEn || undefined}
-        />
-      </div>
-
-      {/* Audience level tips */}
-      <div className="grid sm:grid-cols-3 gap-2 sm:gap-3 mb-6">
-        {audienceTips.map((tip, i) => (
-          <div key={i} className={`p-3 rounded-xl border border-border/40 ${tip.bg}`}>
-            <div className="flex items-center gap-2 mb-1">
-              <tip.icon className={`w-4 h-4 ${tip.color}`} />
-              <span className="font-bold text-xs sm:text-sm">{t(tip.ar, tip.en)}</span>
-            </div>
-            <p className="text-[11px] sm:text-xs text-muted-foreground leading-relaxed">{t(tip.descAr, tip.descEn)}</p>
-          </div>
-        ))}
-      </div>
-
-      <ConfettiEffect trigger={confetti} />
-      {showLevelUp && (
-        <LevelUpModal newLevel={user ? (user.level || 1) + 1 : 1} onClose={() => setShowLevelUp(false)} />
-      )}
-
-      {/* Fantasy Hero Bar */}
-      <motion.div
-        className="flex items-center gap-4 mb-6 p-4 rounded-xl bg-gradient-to-r from-primary/10 via-purple-500/5 to-transparent border border-primary/20"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <FantasyRankBadge level={user?.level || 1} xp={user?.xp || 0} size="sm" />
-        <div>
-          <h2 className="text-lg font-bold flex items-center gap-2">
-            {lesson.titleAr}
-            <span className="text-muted-foreground text-sm font-normal">/ {lesson.titleEn}</span>
-          </h2>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1 text-accent font-bold">
-              <Zap className="w-3 h-3" />
-              {lesson.xpReward} Mana
-            </span>
-            {lesson.language && (
-              <span className={`px-2 py-0.5 rounded-full font-bold text-xs ${
-                ['python','javascript','typescript','java','cpp','rust','go'].includes(lesson.language.toLowerCase())
-                  ? 'bg-green-500/15 text-green-400 border border-green-500/30'
-                  : 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
-              }`}>
-                {lesson.language.toUpperCase()}
-                {['python','javascript','typescript','java','cpp','rust','go'].includes(lesson.language.toLowerCase()) ? ' ⚡' : ' 🌐'}
-              </span>
-            )}
-          </div>
-        </div>
-      </motion.div>
-
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-        <TabsList className="mb-6 p-1 bg-card border border-border w-full justify-start overflow-x-auto h-auto">
-          <TabsTrigger value="content" className="px-3 sm:px-6 py-2 text-xs sm:text-sm">
-            <BookOpen className="w-4 h-4 me-1.5 sm:me-2" />
-            {t('المحتوى', 'Content')}
-          </TabsTrigger>
-          {lesson.quizQuestions && lesson.quizQuestions.length > 0 && (
-            <TabsTrigger value="quiz" className="px-3 sm:px-6 py-2 text-xs sm:text-sm">
-              <BrainCircuit className="w-4 h-4 me-1.5 sm:me-2" />
-              {t('الاختبار', 'Quiz')}
-            </TabsTrigger>
-          )}
-        </TabsList>
-
-        <TabsContent value="content" className="space-y-6 sm:space-y-8 mt-0 outline-none">
-          {/* Bilingual content: Arabic + English side-by-side on desktop, stacked on mobile */}
-          <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
-            <Card className="border-primary/30 bg-primary/5">
-              <CardHeader className="pb-3 flex flex-row items-center gap-2">
-                <span className="px-2 py-0.5 rounded bg-primary/20 text-primary text-xs font-bold">عربي</span>
-                <CardTitle className="text-base">الشرح بالعربية</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div dir="rtl" className="text-base sm:text-lg leading-relaxed whitespace-pre-wrap text-foreground/90">
-                  {lesson.contentAr}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-blue-500/30 bg-blue-500/5">
-              <CardHeader className="pb-3 flex flex-row items-center gap-2">
-                <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-xs font-bold">EN</span>
-                <CardTitle className="text-base">English Explanation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div dir="ltr" className="text-base sm:text-lg leading-relaxed whitespace-pre-wrap text-foreground/90 text-left">
-                  {lesson.contentEn}
-                </div>
-              </CardContent>
-            </Card>
+    <div className="container mx-auto py-8 space-y-8">
+      {/* Lesson Content */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">
+            {language === "ar" ? lesson.title_ar : lesson.title_en}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Description */}
+          <div className="prose dark:prose-invert max-w-none">
+            <p className="text-base leading-relaxed">
+              {language === "ar" ? lesson.content_ar : lesson.content_en}
+            </p>
           </div>
 
-          {/* Code Editor — full width */}
-          {lesson.codeExample && (
+          {/* Code Example */}
+          {lesson.code_example && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-sm font-bold">
-                <Code2 className="w-4 h-4 text-primary" />
-                {t('المثال العملي', 'Code Example')}
-              </div>
-              <Card className="border-border/50 overflow-hidden shadow-xl bg-[#1e1e1e]">
-                <CardHeader className="p-3 bg-[#2d2d2d] flex flex-row items-center justify-between border-b border-[#404040]">
-                  <div className="flex items-center gap-2 text-gray-300">
-                    <Code2 className="w-4 h-4" />
-                    <span className="text-xs sm:text-sm font-medium uppercase tracking-wider">{lesson.language}</span>
-                  </div>
-                  <Button size="sm" onClick={handleRunCode} disabled={executeCode.isPending} className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs px-4 transition-all">
-                    {executeCode.isPending ? (
-                      <>
-                        <Loader2 className="w-3 h-3 me-1 animate-spin" />
-                        {t('جاري التشغيل...', 'Running...')}
-                      </>
-                    ) : (
-                      <><Play className="w-3 h-3 me-1" /> {t('تشغيل', 'Run')}</>
-                    )}
-                  </Button>
-                </CardHeader>
-                <div className="h-[300px] sm:h-[400px]">
-                  <Editor
-                    height="100%"
-                    defaultLanguage={lesson.language?.toLowerCase()}
-                    theme="vs-dark"
-                    value={code}
-                    onChange={(val: string | undefined) => setCode(val || "")}
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: 14,
-                      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-                      lineHeight: 1.6,
-                      padding: { top: 16, bottom: 16 },
-                    }}
-                  />
-                </div>
-              </Card>
+              <h3 className="text-lg font-semibold">
+                {language === "ar" ? "المثال العملي" : "Code Example"}
+              </h3>
+              <SimpleCodeEditor
+                defaultCode={lesson.code_example}
+                language={lesson.language || "python"}
+                onRun={handleCodeRun}
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-              {(output || execStatus !== 'idle') && (
-                <Card className={`border-border/50 overflow-hidden ${execStatus === 'error' ? 'border-red-500/50' : execStatus === 'success' ? 'border-green-500/50' : 'border-border/50'}`}>
-                  <CardHeader className="p-2 px-4 bg-zinc-900/80 border-b border-zinc-800 flex flex-row items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Terminal className="w-3.5 h-3.5 text-zinc-400" />
-                      <span className="text-xs text-zinc-400 font-mono">{t('المخرجات', 'Output')}</span>
-                      {execStatus === 'running' && (
-                        <span className="flex items-center gap-1 text-xs text-yellow-400">
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          {t('جاري التنفيذ...', 'Executing...')}
-                        </span>
-                      )}
-                      {execStatus === 'success' && (
-                        <span className="flex items-center gap-1 text-xs text-green-400">
-                          <CheckCircle2 className="w-3 h-3" />
-                          {t('تم التنفيذ بنجاح', 'Success')}
-                        </span>
-                      )}
-                      {execStatus === 'error' && (
-                        <span className="flex items-center gap-1 text-xs text-red-400">
-                          <AlertTriangle className="w-3 h-3" />
-                          {t('خطأ في التنفيذ', 'Execution Error')}
-                        </span>
-                      )}
+      {/* Quiz Section */}
+      {quiz && quiz.questions && quiz.questions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {language === "ar" ? "اختبار الدرس" : "Lesson Quiz"}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              {currentQuestionIndex + 1} / {quiz.questions.length}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {!showResults ? (
+              <>
+                {/* Question */}
+                {currentQuestion && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">
+                      {language === "ar"
+                        ? currentQuestion.question_ar
+                        : currentQuestion.question_en}
+                    </h3>
+
+                    {/* Options */}
+                    <div className="space-y-3">
+                      {currentQuestion.options?.map((option: any) => (
+                        <label
+                          key={option.id}
+                          className="flex items-center p-3 border border-border rounded-lg cursor-pointer hover:bg-accent transition-colors"
+                        >
+                          <input
+                            type="radio"
+                            name={`question-${currentQuestion.id}`}
+                            value={option.id}
+                            checked={selectedAnswers[currentQuestion.id] === option.id}
+                            onChange={() =>
+                              handleAnswerSelect(currentQuestion.id, option.id)
+                            }
+                            className="w-4 h-4"
+                          />
+                          <span className="ml-3">
+                            {language === "ar" ? option.text_ar : option.text_en}
+                          </span>
+                        </label>
+                      ))}
                     </div>
-                    {execTime !== null && (
-                      <span className="flex items-center gap-1 text-xs text-zinc-500">
-                        <Clock className="w-3 h-3" />
-                        {execTime}ms
-                      </span>
-                    )}
-                  </CardHeader>
-                  <CardContent className="p-4 bg-black">
-                    <pre className={`text-sm font-mono whitespace-pre-wrap ${execStatus === 'error' ? 'text-red-400' : 'text-green-400'}`}>{output}</pre>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {/* Practice section */}
-          {practice && (
-            <Card className="border-2 border-dashed border-accent/40 bg-accent/5">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-lg bg-accent/20 text-accent flex items-center justify-center">
-                    <Sparkles className="w-5 h-5" />
                   </div>
-                  <div>
-                    <CardTitle className="text-base sm:text-lg">{t('تطبيق عملي', 'Hands-On Practice')}</CardTitle>
-                    <p className="text-xs sm:text-sm text-muted-foreground mt-0.5" dir="rtl">{practice.ar}</p>
-                    <p className="text-xs text-muted-foreground/70 mt-0.5" dir="ltr">{practice.en}</p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => setCode(practice.starter)} variant="outline" size="sm" className="gap-2 border-accent/40">
-                  <Sparkles className="w-4 h-4" />
-                  {t('حمّل قالب التمرين', 'Load Exercise Template')}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+                )}
 
-          <div className="flex justify-end border-t border-border/50 pt-6">
-            {lesson.quizQuestions && lesson.quizQuestions.length > 0 ? (
-              <Button size="lg" onClick={() => setActiveTab('quiz')}>
-                {t('التالي: الاختبار', 'Next: Quiz')} <ArrowRight className="ml-2 rtl:hidden w-4 h-4" /><ArrowLeft className="mr-2 ltr:hidden w-4 h-4" />
-              </Button>
-            ) : (
-              <Button size="lg" onClick={handleCompleteLesson} disabled={lesson.isCompleted || completeLesson.isPending}>
-                {lesson.isCompleted ? t('مكتمل', 'Completed') : t('إكمال الدرس', 'Complete Lesson')}
-              </Button>
-            )}
-          </div>
-        </TabsContent>
+                {/* Navigation */}
+                <div className="flex justify-between gap-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
+                    disabled={currentQuestionIndex === 0}
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                    {language === "ar" ? "السابق" : "Previous"}
+                  </Button>
 
-        <TabsContent value="quiz" className="space-y-8 mt-0 outline-none">
-          <div className="max-w-3xl mx-auto space-y-8">
-            {lesson.quizQuestions?.map((q, idx) => {
-              const result = quizResults?.results?.find((r: any) => r.questionId === q.id);
-              
-              return (
-                <Card key={q.id} className={`border-2 ${result ? (result.isCorrect ? 'border-green-500/50' : 'border-red-500/50') : 'border-border'}`}>
-                  <CardHeader>
-                    <CardTitle className="text-xl">
-                      {idx + 1}. {t(q.questionAr, q.questionEn)}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <RadioGroup 
-                      value={selectedAnswers[q.id] || ""} 
-                      onValueChange={(val) => setSelectedAnswers(prev => ({...prev, [q.id]: val}))}
-                      disabled={!!quizResults}
+                  {isLastQuestion ? (
+                    <Button
+                      onClick={handleSubmitQuiz}
+                      className="bg-green-600 hover:bg-green-700"
                     >
-                      {q.options.map((opt) => {
-                        const isCorrectOpt = result?.correctOptionId === opt.id;
-                        const isSelectedOpt = selectedAnswers[q.id] === opt.id;
-                        let optClass = "flex items-center space-x-2 space-x-reverse border border-border p-4 rounded-xl transition-all cursor-pointer hover:bg-muted";
-                        
-                        if (quizResults) {
-                          if (isCorrectOpt) optClass = "flex items-center space-x-2 space-x-reverse border-2 border-green-500 bg-green-500/10 p-4 rounded-xl";
-                          else if (isSelectedOpt && !isCorrectOpt) optClass = "flex items-center space-x-2 space-x-reverse border-2 border-red-500 bg-red-500/10 p-4 rounded-xl";
-                        } else if (isSelectedOpt) {
-                          optClass = "flex items-center space-x-2 space-x-reverse border-primary bg-primary/5 p-4 rounded-xl";
-                        }
-
-                        return (
-                          <div key={opt.id} className={optClass}>
-                            <RadioGroupItem value={opt.id} id={`opt-${opt.id}`} />
-                            <Label htmlFor={`opt-${opt.id}`} className="flex-1 cursor-pointer font-medium text-base">
-                              {t(opt.textAr, opt.textEn)}
-                            </Label>
-                          </div>
-                        );
-                      })}
-                    </RadioGroup>
-                    
-                    {result && (
-                      <div className={`mt-4 p-4 rounded-lg ${result.isCorrect ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-500'}`}>
-                        {result.isCorrect 
-                          ? t('إجابة صحيحة! أحسنت.', 'Correct answer! Good job.')
-                          : t('إجابة خاطئة. حاول مرة أخرى.', 'Wrong answer. Try again.')
-                        }
-                        {(result.explanationAr || result.explanationEn) && (
-                          <p className="mt-2 text-sm text-muted-foreground">{t(result.explanationAr || '', result.explanationEn || '')}</p>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-
-            <div className="flex justify-center pt-8">
-              {!quizResults ? (
-                <Button size="lg" onClick={handleQuizSubmit} disabled={submitQuiz.isPending} className="w-full md:w-auto px-12 h-14 text-lg">
-                  {submitQuiz.isPending ? t('جاري الإرسال...', 'Submitting...') : t('تسليم الإجابات', 'Submit Answers')}
-                </Button>
-              ) : (
-                <div className="flex gap-4 w-full md:w-auto">
-                  <Button size="lg" variant="outline" onClick={() => { setQuizResults(null); setSelectedAnswers({}); }} className="flex-1">
-                    {t('إعادة المحاولة', 'Try Again')}
-                  </Button>
-                  <Button size="lg" onClick={handleCompleteLesson} disabled={lesson.isCompleted || completeLesson.isPending} className="flex-1">
-                    {t('إكمال الدرس والعودة', 'Complete & Return')}
-                  </Button>
+                      {language === "ar" ? "إرسال الاختبار" : "Submit Quiz"}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => setCurrentQuestionIndex(currentQuestionIndex + 1)}
+                    >
+                      {language === "ar" ? "التالي" : "Next"}
+                      <ChevronRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
-      
+              </>
+            ) : (
+              <div className="space-y-4">
+                <Alert className="bg-green-500/10 border-green-500/20">
+                  <AlertCircle className="h-4 w-4 text-green-500" />
+                  <AlertDescription className="text-green-400">
+                    {language === "ar"
+                      ? `تم إرسال الاختبار! النتيجة: ${quizScore}%`
+                      : `Quiz submitted! Score: ${quizScore}%`}
+                  </AlertDescription>
+                </Alert>
+                <Button
+                  onClick={() => {
+                    setShowResults(false);
+                    setCurrentQuestionIndex(0);
+                    setSelectedAnswers({});
+                    setQuizScore(null);
+                  }}
+                  className="w-full"
+                >
+                  {language === "ar" ? "إعادة المحاولة" : "Try Again"}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

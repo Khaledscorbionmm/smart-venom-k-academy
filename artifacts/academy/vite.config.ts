@@ -15,6 +15,9 @@ const isReplit = process.env.REPL_ID !== undefined;
 
 export default defineConfig({
   base: basePath,
+  define: {
+    'process.env.MONACO_EDITOR_ASSET_PATH': JSON.stringify('/monaco-editor/min/vs/'),
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -36,13 +39,26 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
+      "monaco-editor": path.resolve(import.meta.dirname, "node_modules/monaco-editor"),
     },
     dedupe: ["react", "react-dom"],
+  },
+  optimizeDeps: {
+    include: ["@monaco-editor/react"],
+    exclude: ["@replit/vite-plugin-runtime-error-modal"],
   },
   root: path.resolve(import.meta.dirname),
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'monaco': ['@monaco-editor/react'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
   },
   server: {
     port,
@@ -50,7 +66,8 @@ export default defineConfig({
     host: "0.0.0.0",
     allowedHosts: true,
     fs: {
-      strict: true,
+      strict: false,
+      allow: ['..', 'node_modules'],
     },
     proxy: {
       "/api": {
@@ -61,6 +78,11 @@ export default defineConfig({
           proxy.on("error", () => {});
         },
       },
+    },
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
     },
   },
   preview: {

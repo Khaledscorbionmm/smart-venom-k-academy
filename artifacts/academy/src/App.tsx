@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { FloatingMascot } from "@/components/FloatingMascot";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { VersionBadge } from "@/components/VersionBadge";
 import { PageSkeleton } from "@/components/LoadingSkeleton";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
@@ -84,6 +85,7 @@ function App() {
                 </WouterRouter>
               </ErrorBoundary>
               <FloatingMascot />
+              <VersionBadge />
               <Toaster richColors position="top-center" />
             </TooltipProvider>
           </SoundProvider>

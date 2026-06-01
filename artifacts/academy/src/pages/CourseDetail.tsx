@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { BookOpen, CheckCircle2, Lock, PlayCircle, Code, Star, Globe } from "lucide-react";
+import { BookOpen, CheckCircle2, Lock, PlayCircle, Code, Star, Globe, AlertCircle, RefreshCw } from "lucide-react";
 import { SiPython, SiJavascript, SiTypescript, SiCplusplus, SiRust, SiGo } from "react-icons/si";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { LessonSkeleton } from "@/components/LoadingSkeleton";
+import { useState, useEffect } from "react";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   python: SiPython,
@@ -24,10 +25,91 @@ export default function CourseDetail() {
   const { t } = useLanguage();
   const { slug } = useParams<{ slug: string }>();
   const queryClient = useQueryClient();
-  const { data: course, isLoading } = useGetCourse(slug || "");
+  const [retryCount, setRetryCount] = useState(0);
+  const [showError, setShowError] = useState(false);
+  
+  const { data: course, isLoading, error, refetch, isFetching } = useGetCourse(slug || "", {
+    query: {
+      retry: 2,
+      retryDelay: 1000,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    }
+  });
+  
   const requestSub = useRequestSubscription();
 
-  if (isLoading) return <LessonSkeleton />;
+  // Handle loading with timeout
+  const [showSkeleton, setShowSkeleton] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isLoading) {
+        setShowError(true);
+      }
+      setShowSkeleton(false);
+    }, 10000); // 10 seconds timeout
+
+    return () => clearTimeout(timer);
+  }, [isLoading]);
+
+  if (showSkeleton && isLoading) return <LessonSkeleton />;
+  
+  if (showError && isLoading) {
+    return (
+      <div className="container mx-auto p-8 text-center flex flex-col items-center justify-center min-h-[400px]">
+        <AlertCircle className="w-16 h-16 text-yellow-500 mb-4" />
+        <h2 className="text-xl font-bold mb-2">{t('مشكلة في التحميل', 'Loading Issue')}</h2>
+        <p className="text-muted-foreground mb-6 max-w-md">
+          {t('استغرق التحميل وقتاً طويلاً. يرجى المحاولة مرة أخرى.', 'Loading took too long. Please try again.')}
+        </p>
+        <div className="flex gap-4">
+          <Button 
+            onClick={() => {
+              setShowError(false);
+              setShowSkeleton(true);
+              refetch();
+            }}
+            disabled={isFetching}
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            {t('إعادة المحاولة', 'Retry')}
+          </Button>
+          <Link href="/courses">
+            <Button variant="outline">{t('عودة للمسارات', 'Back to Tracks')}</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-8 text-center flex flex-col items-center justify-center min-h-[400px]">
+        <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+        <h2 className="text-xl font-bold mb-2">{t('حدث خطأ', 'An Error Occurred')}</h2>
+        <p className="text-muted-foreground mb-6 max-w-md">
+          {t('لم نتمكن من تحميل تفاصيل المسار. يرجى المحاولة مرة أخرى.', 'We couldn\'t load the course details. Please try again.')}
+        </p>
+        <div className="flex gap-4">
+          <Button 
+            onClick={() => {
+              setShowSkeleton(true);
+              refetch();
+            }}
+            disabled={isFetching}
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            {t('إعادة المحاولة', 'Retry')}
+          </Button>
+          <Link href="/courses">
+            <Button variant="outline">{t('عودة للمسارات', 'Back to Tracks')}</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (!course) {
     return (
       <div className="container mx-auto p-8 text-center">
@@ -163,11 +245,25 @@ export default function CourseDetail() {
                         {isLocked ? (
                           <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground/50 shrink-0" />
                         ) : (
-                          <Link href={`/lessons/${lesson.id}`} className="shrink-0">
-                            <Button variant={lesson.isCompleted ? "outline" : "default"} size="sm" className="text-xs sm:text-sm h-8 sm:h-9">
-                              {lesson.isCompleted ? t('مراجعة', 'Review') : t('ابدأ', 'Start')}
-                            </Button>
-                          </Link>
+          <Link href={`/lessons/${lesson.id}`} className="shrink-0">
+            <Button 
+              variant={lesson.isCompleted ? "outline" : "default"} 
+              size="sm" 
+              className="text-xs sm:text-sm h-8 sm:h-9"
+              onClick={() => {
+                // Prefetch lesson data for faster loading
+                queryClient.prefetchQuery({
+                  queryKey: ['lesson', lesson.id],
+                  queryFn: async () => {
+                    const response = await fetch(`/api/lessons/${lesson.id}`);
+                    return response.json();
+                  }
+                });
+              }}
+            >
+              {lesson.isCompleted ? t('مراجعة', 'Review') : t('ابدأ', 'Start')}
+            </Button>
+          </Link>
                         )}
                       </div>
                     );

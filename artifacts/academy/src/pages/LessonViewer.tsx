@@ -1,15 +1,15 @@
 import { useParams } from "wouter";
-  import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-  import { useState } from "react";
-  import { AlertCircle, ChevronLeft, ChevronRight, CheckCircle, Trophy } from "lucide-react";
-  import { apiClient } from "@/lib/api-client";
-  import { PageSkeleton } from "@/components/LoadingSkeleton";
-  import { Button } from "@/components/ui/button";
-  import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-  import { Alert, AlertDescription } from "@/components/ui/alert";
-  import SimpleCodeEditor from "@/components/SimpleCodeEditor";
-  import { useLanguage } from "@/contexts/LanguageContext";
-  import { useAuth } from "@/contexts/AuthContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { AlertCircle, ChevronLeft, ChevronRight, CheckCircle, Trophy, RefreshCw } from "lucide-react";
+import { apiClient } from "@/lib/api-client";
+import { PageSkeleton } from "@/components/LoadingSkeleton";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import SimpleCodeEditor from "@/components/SimpleCodeEditor";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 
   export default function LessonViewer() {
     const { id } = useParams();
@@ -21,14 +21,31 @@ import { useParams } from "wouter";
     const [showResults, setShowResults] = useState(false);
     const [quizResult, setQuizResult] = useState<{ score: number; percentage: number; totalQuestions: number } | null>(null);
 
-    const { data: lesson, isLoading: lessonLoading, error: lessonError } = useQuery({
+    const { data: lesson, isLoading: lessonLoading, error: lessonError, refetch, isFetching } = useQuery({
       queryKey: ["lesson", id],
       queryFn: async () => {
         const response = await apiClient.get(`/lessons/${id}`);
         return response.data;
       },
       retry: 2,
+      retryDelay: 1000,
+      staleTime: 2 * 60 * 1000, // 2 minutes
     });
+
+    // Loading timeout handler
+    const [showLoadingError, setShowLoadingError] = useState(false);
+    const [showSkeleton, setShowSkeleton] = useState(true);
+    
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        if (lessonLoading) {
+          setShowLoadingError(true);
+        }
+        setShowSkeleton(false);
+      }, 10000); // 10 seconds timeout
+
+      return () => clearTimeout(timer);
+    }, [lessonLoading]);
 
     const completeMutation = useMutation({
       mutationFn: async () => {
@@ -85,19 +102,61 @@ import { useParams } from "wouter";
       }
     };
 
-    if (lessonLoading) {
+    if (showSkeleton && lessonLoading) {
       return <PageSkeleton />;
+    }
+
+    if (showLoadingError && lessonLoading) {
+      return (
+        <div className="container mx-auto py-8 flex flex-col items-center justify-center min-h-[400px]">
+          <AlertCircle className="w-16 h-16 text-yellow-500 mb-4" />
+          <h2 className="text-xl font-bold mb-2">
+            {language === "ar" ? "مشكلة في التحميل" : "Loading Issue"}
+          </h2>
+          <p className="text-muted-foreground mb-6 text-center max-w-md">
+            {language === "ar" 
+              ? "استغرق التحميل وقتاً طويلاً. يرجى المحاولة مرة أخرى." 
+              : "Loading took too long. Please try again."}
+          </p>
+          <Button 
+            onClick={() => {
+              setShowLoadingError(false);
+              setShowSkeleton(true);
+              refetch();
+            }}
+            disabled={isFetching}
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            {language === "ar" ? "إعادة المحاولة" : "Retry"}
+          </Button>
+        </div>
+      );
     }
 
     if (lessonError || !lesson) {
       return (
-        <div className="container mx-auto py-8">
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              عذراً، حدث خطأ في تحميل الدرس. يرجى المحاولة لاحقاً.
-            </AlertDescription>
-          </Alert>
+        <div className="container mx-auto py-8 flex flex-col items-center justify-center min-h-[400px]">
+          <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+          <h2 className="text-xl font-bold mb-2">
+            {language === "ar" ? "حدث خطأ" : "An Error Occurred"}
+          </h2>
+          <p className="text-muted-foreground mb-6 text-center max-w-md">
+            {language === "ar" 
+              ? "لم نتمكن من تحميل الدرس. يرجى المحاولة مرة أخرى." 
+              : "We couldn't load the lesson. Please try again."}
+          </p>
+          <Button 
+            onClick={() => {
+              setShowSkeleton(true);
+              refetch();
+            }}
+            disabled={isFetching}
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            {language === "ar" ? "إعادة المحاولة" : "Retry"}
+          </Button>
         </div>
       );
     }
@@ -164,6 +223,22 @@ import { useParams } from "wouter";
                   ? (language === "ar" ? "جاري التسجيل..." : "Saving...")
                   : (language === "ar" ? "إكمال الدرس (+XP)" : "Complete Lesson (+XP)")}
               </Button>
+            )}
+
+            {/* Audio Player if available */}
+            {lesson.audioUrlAr && (
+              <div className="mt-4">
+                <h3 className="text-lg font-semibold mb-2">
+                  {language === "ar" ? "🎧 الاستماع للدرس" : "🎧 Listen to Lesson"}
+                </h3>
+                <audio 
+                  controls 
+                  src={lesson.audioUrlAr} 
+                  className="w-full"
+                >
+                  {language === "ar" ? "متصفحك لا يدعم تشغيل الصوت" : "Your browser does not support audio"}
+                </audio>
+              </div>
             )}
           </CardContent>
         </Card>
